@@ -90,3 +90,4 @@ acciones (para acciones rara vez importa tanto como para crypto).
 - Fines de semana no hay velas nuevas de acciones — el bot no manda nada
   raro, simplemente no encuentra nada nuevo que avisar.
 - Esto es un aviso, no ejecuta operaciones ni reemplaza tu análisis.
+# alertbot
