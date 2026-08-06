@@ -70,7 +70,7 @@ export async function fetchTwelveDataSeries(symbol, tf, apiKey, outputsize = 300
   const interval = TWELVEDATA_INTERVAL[tf];
   const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(
     symbol
-  )}&interval=${interval}&outputsize=${outputsize}&apikey=${apiKey}&order=ASC`;
+  )}&interval=${interval}&outputsize=${outputsize}&timezone=UTC&apikey=${apiKey}&order=ASC`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`TwelveData ${symbol} ${tf}: HTTP ${res.status}`);
   const data = await res.json();
