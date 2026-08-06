@@ -1,0 +1,13 @@
+{
+  "name": "alertbot",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Scanner de señales RSI + Squeeze Momentum (crypto y stocks) con alertas por Telegram",
+  "scripts": {
+    "scan": "node scan.mjs",
+    "test": "node test-indicators.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
