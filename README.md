@@ -5,7 +5,11 @@ Replica las 4 alertas de tu indicador de TradingView (`BUY RSI`, `SELL RSI`,
 temporalidades a la vez, y te avisa por Telegram cuando aparece alguna —
 vos después entrás a analizar si operás o no.
 
-- **Cryptos**: vía API pública de Binance (gratis, sin API key).
+- **Cryptos**: vía API pública de Kraken (gratis, sin API key). *(Se usó
+  Kraken en vez de Binance porque Binance bloquea con error 451 cualquier
+  request que llegue desde IPs de EE.UU. — y los runners de GitHub Actions
+  corren ahí. Kraken es un exchange con sede en EE.UU. y no tiene ese
+  bloqueo).*
 - **Stocks**: vía Twelve Data (gratis hasta 800 requests/día).
 - **Scheduler**: GitHub Actions, corre cada 15 minutos. *(Ojo: Vercel Cron
   en plan Hobby solo permite 1 corrida por día, por eso no se usó acá).*
@@ -90,4 +94,3 @@ acciones (para acciones rara vez importa tanto como para crypto).
 - Fines de semana no hay velas nuevas de acciones — el bot no manda nada
   raro, simplemente no encuentra nada nuevo que avisar.
 - Esto es un aviso, no ejecuta operaciones ni reemplaza tu análisis.
-# alertbot

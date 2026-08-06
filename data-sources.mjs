@@ -3,11 +3,19 @@
 // y garantizan que la ÚLTIMA vela devuelta esté CERRADA (se descarta la vela
 // en formación si el candle actual todavía no cerró).
 
-const BINANCE_INTERVAL = {
-  "15m": "15m",
-  "1h": "1h",
-  "4h": "4h",
-  "1d": "1d",
+const KRAKEN_INTERVAL = {
+  "15m": 15,
+  "1h": 60,
+  "4h": 240,
+  "1d": 1440,
+};
+
+// Kraken usa nombres de par propios (XBT en vez de BTC, cotizado en USD).
+// Si sumás más cryptos a CRYPTO_SYMBOLS en scan.mjs, agregá su par acá.
+const KRAKEN_PAIR = {
+  BTCUSDT: "XBTUSD",
+  ETHUSDT: "ETHUSD",
+  SOLUSDT: "SOLUSD",
 };
 
 const TWELVEDATA_INTERVAL = {
@@ -39,16 +47,22 @@ function dropUnclosedCandle(openTimes, arrays, tf) {
   return { openTime: openTimes, ...arrays };
 }
 
-export async function fetchBinanceKlines(symbol, tf, limit = 300) {
-  const interval = BINANCE_INTERVAL[tf];
-  const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
+export async function fetchKrakenKlines(symbol, tf, limit = 300) {
+  const pair = KRAKEN_PAIR[symbol] || symbol;
+  const interval = KRAKEN_INTERVAL[tf];
+  const url = `https://api.kraken.com/0/public/OHLC?pair=${pair}&interval=${interval}`;
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`Binance ${symbol} ${tf}: HTTP ${res.status}`);
+  if (!res.ok) throw new Error(`Kraken ${symbol} ${tf}: HTTP ${res.status}`);
   const data = await res.json();
-  const openTime = data.map((k) => k[0]);
-  const high = data.map((k) => parseFloat(k[2]));
-  const low = data.map((k) => parseFloat(k[3]));
-  const close = data.map((k) => parseFloat(k[4]));
+  if (data.error && data.error.length) {
+    throw new Error(`Kraken ${symbol} ${tf}: ${data.error.join(", ")}`);
+  }
+  const resultKey = Object.keys(data.result).find((k) => k !== "last");
+  const rows = (data.result[resultKey] || []).slice(-limit);
+  const openTime = rows.map((r) => r[0] * 1000); // Kraken da segundos, pasamos a ms
+  const high = rows.map((r) => parseFloat(r[2]));
+  const low = rows.map((r) => parseFloat(r[3]));
+  const close = rows.map((r) => parseFloat(r[4]));
   return dropUnclosedCandle(openTime, { high, low, close }, tf);
 }
 

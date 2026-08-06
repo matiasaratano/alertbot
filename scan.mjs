@@ -6,7 +6,7 @@ import {
   findPivots,
   findDivergences,
 } from "./indicators.mjs";
-import { fetchBinanceKlines, fetchTwelveDataSeries, isStockTimeframeDue } from "./data-sources.mjs";
+import { fetchKrakenKlines, fetchTwelveDataSeries, isStockTimeframeDue } from "./data-sources.mjs";
 import { sendTelegram } from "./telegram.mjs";
 
 // ============================================================
@@ -105,7 +105,7 @@ async function run() {
   for (const symbol of CRYPTO_SYMBOLS) {
     for (const tf of TIMEFRAMES) {
       try {
-        const candles = await fetchBinanceKlines(symbol, tf, 300);
+        const candles = await fetchKrakenKlines(symbol, tf, 300);
         const events = await analyzeSymbol(symbol, tf, candles);
         for (const ev of events) {
           const key = stateKey(symbol, tf, ev.signal);
