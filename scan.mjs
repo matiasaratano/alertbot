@@ -118,7 +118,14 @@ function processEvents(state, symbol, tf, events, messages) {
     sentThisRun[key] = (sentThisRun[key] ?? 0) + 1;
     if (sentThisRun[key] > MAX_ALERTS_PER_KEY_PER_RUN) continue; // tope de seguridad
 
-    messages.push(`${ev.text}\n<b>${symbol}</b> · ${tf}`);
+    const barDate = new Date(ev.barTime).toLocaleString("es-AR", {
+      timeZone: "America/Argentina/Buenos_Aires",
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    messages.push(`${ev.text}\n<b>${symbol}</b> · ${tf}\n🕒 Vela: ${barDate} (ART)`);
   }
 
   for (const key of Object.keys(maxSeen)) {
