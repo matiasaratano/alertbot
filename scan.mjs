@@ -55,20 +55,23 @@ async function analyzeSymbol(symbol, tf, candles) {
   }
 
   const events = [];
-  const lastIdx = close.length - 1;
 
-  // --- RSI buy/sell ---
+  // --- RSI buy/sell: revisamos TODO el historial, no solo la última vela,
+  // para no perder cruces que hayan ocurrido mientras el bot no corrió ---
   const rsi = rsiWilder(close, RSI_LEN);
   const { crossover: rsiBuy } = crossEvents(rsi, BUY_LEVEL);
   const { crossunder: rsiSell } = crossEvents(rsi, SELL_LEVEL);
-  if (rsiBuy[lastIdx]) {
-    events.push({ signal: "rsi_buy", idx: lastIdx, text: `🟢 BUY (RSI) — cruzó por encima de ${BUY_LEVEL}. RSI=${rsi[lastIdx].toFixed(1)}` });
-  }
-  if (rsiSell[lastIdx]) {
-    events.push({ signal: "rsi_sell", idx: lastIdx, text: `🔴 SELL (RSI) — cruzó por debajo de ${SELL_LEVEL}. RSI=${rsi[lastIdx].toFixed(1)}` });
+  for (let i = 0; i < close.length; i++) {
+    if (rsiBuy[i]) {
+      events.push({ signal: "rsi_buy", idx: i, text: `🟢 BUY (RSI) — cruzó por encima de ${BUY_LEVEL}. RSI=${rsi[i].toFixed(1)}` });
+    }
+    if (rsiSell[i]) {
+      events.push({ signal: "rsi_sell", idx: i, text: `🔴 SELL (RSI) — cruzó por debajo de ${SELL_LEVEL}. RSI=${rsi[i].toFixed(1)}` });
+    }
   }
 
-  // --- SQZMOM + divergencias ---
+  // --- SQZMOM + divergencias: idem, tomamos TODAS las confirmadas en el
+  // historial disponible; el filtro de "ya avisada" lo hace el estado ---
   const { val } = computeSqueezeMomentum(high, low, close, SQZ);
   const pivots = findPivots(val, PIVOT_LEN, PIVOT_LEN);
   const { bullish, bearish } = findDivergences(
@@ -77,20 +80,36 @@ async function analyzeSymbol(symbol, tf, candles) {
     { divRangeMin: DIV_RANGE_MIN, divRangeMax: DIV_RANGE_MAX }
   );
 
-  // una divergencia queda "confirmada" recién PIVOT_LEN velas después del
-  // pivot, así que solo nos interesan las que caen dentro de esa ventana
-  // reciente (si no, ya la habríamos alertado en una corrida anterior)
-  const recentBullish = bullish.filter((d) => d.idx >= lastIdx - PIVOT_LEN);
-  const recentBearish = bearish.filter((d) => d.idx >= lastIdx - PIVOT_LEN);
-
-  for (const d of recentBullish) {
+  for (const d of bullish) {
     events.push({ signal: "div_bull", idx: d.idx, text: `📈 Divergencia ALCISTA de Momentum` });
   }
-  for (const d of recentBearish) {
+  for (const d of bearish) {
     events.push({ signal: "div_bear", idx: d.idx, text: `📉 Divergencia BAJISTA de Momentum` });
   }
 
-  return events.map((e) => ({ ...e, barTime: openTime[e.idx] }));
+  return events
+    .map((e) => ({ ...e, barTime: openTime[e.idx] }))
+    .sort((a, b) => a.barTime - b.barTime);
+}
+
+function processEvents(state, symbol, tf, events, messages) {
+  for (const ev of events) {
+    const key = stateKey(symbol, tf, ev.signal);
+    const watermark = state[key];
+
+    if (watermark === undefined) {
+      // primera vez que vemos esta combinación símbolo/tf/señal: no
+      // mandamos todo el historial de una, solo dejamos la marca puesta
+      // y arrancamos a avisar desde la próxima señal nueva en adelante.
+      state[key] = ev.barTime;
+      continue;
+    }
+
+    if (ev.barTime <= watermark) continue; // ya avisada en una corrida anterior
+
+    state[key] = ev.barTime;
+    messages.push(`${ev.text}\n<b>${symbol}</b> · ${tf}`);
+  }
 }
 
 async function run() {
@@ -107,12 +126,7 @@ async function run() {
       try {
         const candles = await fetchKrakenKlines(symbol, tf, 300);
         const events = await analyzeSymbol(symbol, tf, candles);
-        for (const ev of events) {
-          const key = stateKey(symbol, tf, ev.signal);
-          if (state[key] === ev.barTime) continue; // ya avisado
-          state[key] = ev.barTime;
-          messages.push(`${ev.text}\n<b>${symbol}</b> · ${tf}`);
-        }
+        processEvents(state, symbol, tf, events, messages);
       } catch (err) {
         console.error(`Error con ${symbol} ${tf}:`, err.message);
       }
@@ -126,12 +140,7 @@ async function run() {
         try {
           const candles = await fetchTwelveDataSeries(symbol, tf, TWELVEDATA_API_KEY, 300);
           const events = await analyzeSymbol(symbol, tf, candles);
-          for (const ev of events) {
-            const key = stateKey(symbol, tf, ev.signal);
-            if (state[key] === ev.barTime) continue;
-            state[key] = ev.barTime;
-            messages.push(`${ev.text}\n<b>${symbol}</b> · ${tf}`);
-          }
+          processEvents(state, symbol, tf, events, messages);
         } catch (err) {
           console.error(`Error con ${symbol} ${tf}:`, err.message);
         }
