@@ -92,23 +92,37 @@ async function analyzeSymbol(symbol, tf, candles) {
     .sort((a, b) => a.barTime - b.barTime);
 }
 
+const MAX_ALERTS_PER_KEY_PER_RUN = 3; // tope de seguridad anti-inundación
+
 function processEvents(state, symbol, tf, events, messages) {
+  // snapshot: qué claves ya existían ANTES de esta corrida (bootstrap real)
+  const wasKnown = {};
+  const maxSeen = {};
+
   for (const ev of events) {
     const key = stateKey(symbol, tf, ev.signal);
+    if (!(key in wasKnown)) wasKnown[key] = state[key] !== undefined;
+    maxSeen[key] = Math.max(maxSeen[key] ?? -Infinity, ev.barTime);
+  }
+
+  const sentThisRun = {};
+
+  for (const ev of events) {
+    const key = stateKey(symbol, tf, ev.signal);
+
+    if (!wasKnown[key]) continue; // clave nueva: no mandamos historial, solo marcamos
+
     const watermark = state[key];
-
-    if (watermark === undefined) {
-      // primera vez que vemos esta combinación símbolo/tf/señal: no
-      // mandamos todo el historial de una, solo dejamos la marca puesta
-      // y arrancamos a avisar desde la próxima señal nueva en adelante.
-      state[key] = ev.barTime;
-      continue;
-    }
-
     if (ev.barTime <= watermark) continue; // ya avisada en una corrida anterior
 
-    state[key] = ev.barTime;
+    sentThisRun[key] = (sentThisRun[key] ?? 0) + 1;
+    if (sentThisRun[key] > MAX_ALERTS_PER_KEY_PER_RUN) continue; // tope de seguridad
+
     messages.push(`${ev.text}\n<b>${symbol}</b> · ${tf}`);
+  }
+
+  for (const key of Object.keys(maxSeen)) {
+    state[key] = Math.max(state[key] ?? -Infinity, maxSeen[key]);
   }
 }
 
