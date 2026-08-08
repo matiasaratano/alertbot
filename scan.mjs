@@ -94,7 +94,7 @@ async function analyzeSymbol(symbol, tf, candles) {
 
 const MAX_ALERTS_PER_KEY_PER_RUN = 3; // tope de seguridad anti-inundación
 
-function processEvents(state, symbol, tf, events, messages) {
+function processEvents(state, symbol, tf, events) {
   // snapshot: qué claves ya existían ANTES de esta corrida (bootstrap real)
   const wasKnown = {};
   const maxSeen = {};
@@ -106,6 +106,7 @@ function processEvents(state, symbol, tf, events, messages) {
   }
 
   const sentThisRun = {};
+  const accepted = [];
 
   for (const ev of events) {
     const key = stateKey(symbol, tf, ev.signal);
@@ -118,19 +119,87 @@ function processEvents(state, symbol, tf, events, messages) {
     sentThisRun[key] = (sentThisRun[key] ?? 0) + 1;
     if (sentThisRun[key] > MAX_ALERTS_PER_KEY_PER_RUN) continue; // tope de seguridad
 
-    const barDate = new Date(ev.barTime).toLocaleString("es-AR", {
-      timeZone: "America/Argentina/Buenos_Aires",
-      day: "2-digit",
-      month: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-    messages.push(`${ev.text}\n<b>${symbol}</b> · ${tf}\n🕒 Vela: ${barDate} (ART)`);
+    accepted.push(ev);
   }
 
   for (const key of Object.keys(maxSeen)) {
     state[key] = Math.max(state[key] ?? -Infinity, maxSeen[key]);
   }
+
+  return accepted;
+}
+
+// símbolo -> ticker de Kraken en TradingView, para armar el link directo
+const TV_CRYPTO_SYMBOL = {
+  BTCUSDT: "KRAKEN:BTCUSD",
+  ETHUSDT: "KRAKEN:ETHUSD",
+  SOLUSDT: "KRAKEN:SOLUSD",
+};
+const TV_INTERVAL = { "1h": "60", "4h": "240", "1d": "D" };
+
+function tradingViewLink(symbol, tf, isCrypto) {
+  const tvSymbol = isCrypto ? TV_CRYPTO_SYMBOL[symbol] || symbol : symbol;
+  const interval = TV_INTERVAL[tf] || "60";
+  return `https://www.tradingview.com/chart/?symbol=${encodeURIComponent(tvSymbol)}&interval=${interval}`;
+}
+
+// temporalidad -> cuánto la resaltamos en el mensaje
+function tfEmphasis(tf) {
+  if (tf === "1d") return "🔥🔥 DIARIO — ";
+  if (tf === "4h") return "⭐ ";
+  return "";
+}
+
+// para dar contexto de tendencia mayor: qué temporalidad mirar por encima de cada una
+const HIGHER_TF = { "1h": "4h", "4h": "1d" }; // 1d no tiene una mayor configurada
+
+async function higherTfContext(symbol, tf, isCrypto) {
+  const higherTf = HIGHER_TF[tf];
+  if (!higherTf) return null;
+  try {
+    const candles = isCrypto
+      ? await fetchKrakenKlines(symbol, higherTf, 100)
+      : await fetchTwelveDataSeries(symbol, higherTf, TWELVEDATA_API_KEY, 100);
+    const rsi = rsiWilder(candles.close, RSI_LEN);
+    const lastRsi = rsi[rsi.length - 1];
+    if (lastRsi == null) return null;
+
+    let bias;
+    if (lastRsi >= SELL_LEVEL) bias = "sobrecomprado";
+    else if (lastRsi <= BUY_LEVEL) bias = "sobrevendido";
+    else if (lastRsi > 50) bias = "sesgo alcista";
+    else bias = "sesgo bajista";
+
+    return `📊 Contexto ${higherTf}: RSI=${lastRsi.toFixed(1)} (${bias})`;
+  } catch (err) {
+    console.error(`  No se pudo obtener contexto ${higherTf} de ${symbol}:`, err.message);
+    return null;
+  }
+}
+
+function formatBarDate(barTime) {
+  return new Date(barTime).toLocaleString("es-AR", {
+    timeZone: "America/Argentina/Buenos_Aires",
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+async function composeMessage(symbol, tf, ev, isCrypto) {
+  const lines = [
+    `${tfEmphasis(tf)}${ev.text}`,
+    `<b>${symbol}</b> · ${tf}`,
+    `🕒 Vela: ${formatBarDate(ev.barTime)} (ART)`,
+  ];
+
+  const context = await higherTfContext(symbol, tf, isCrypto);
+  if (context) lines.push(context);
+
+  lines.push(tradingViewLink(symbol, tf, isCrypto));
+
+  return lines.join("\n");
 }
 
 async function run() {
@@ -147,7 +216,10 @@ async function run() {
       try {
         const candles = await fetchKrakenKlines(symbol, tf, 300);
         const events = await analyzeSymbol(symbol, tf, candles);
-        processEvents(state, symbol, tf, events, messages);
+        const accepted = processEvents(state, symbol, tf, events);
+        for (const ev of accepted) {
+          messages.push(await composeMessage(symbol, tf, ev, true));
+        }
       } catch (err) {
         console.error(`Error con ${symbol} ${tf}:`, err.message);
       }
@@ -161,7 +233,10 @@ async function run() {
         try {
           const candles = await fetchTwelveDataSeries(symbol, tf, TWELVEDATA_API_KEY, 300);
           const events = await analyzeSymbol(symbol, tf, candles);
-          processEvents(state, symbol, tf, events, messages);
+          const accepted = processEvents(state, symbol, tf, events);
+          for (const ev of accepted) {
+            messages.push(await composeMessage(symbol, tf, ev, false));
+          }
         } catch (err) {
           console.error(`Error con ${symbol} ${tf}:`, err.message);
         }
@@ -176,6 +251,13 @@ async function run() {
   }
 
   saveState(state);
+
+  // heartbeat: el watchdog usa esto para saber si el bot sigue corriendo solo
+  fs.writeFileSync(
+    new URL("./heartbeat.json", import.meta.url),
+    JSON.stringify({ lastRun: new Date().toISOString(), alertsSent: messages.length }, null, 2)
+  );
+
   console.log(`Listo. ${messages.length} alerta(s) enviada(s).`);
 }
 
