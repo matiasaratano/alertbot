@@ -54,5 +54,21 @@
   "AMZN:1h:rsi_buy": 1785335400000,
   "AMZN:1h:div_bull": 1785353400000,
   "AMZN:1h:div_bear": 1783355400000,
-  "AMZN:1h:rsi_sell": 1785850200000
+  "AMZN:1h:rsi_sell": 1785850200000,
+  "AAPL:4h:rsi_buy": 1782480600000,
+  "AAPL:4h:rsi_sell": 1785346200000,
+  "AAPL:4h:div_bull": 1782754200000,
+  "AAPL:4h:div_bear": 1785346200000,
+  "MSFT:4h:rsi_buy": 1782480600000,
+  "MSFT:4h:div_bull": 1778779800000,
+  "MSFT:4h:rsi_sell": 1780407000000,
+  "MSFT:4h:div_bear": 1784655000000,
+  "NVDA:4h:rsi_buy": 1774963800000,
+  "NVDA:4h:div_bear": 1772044200000,
+  "NVDA:4h:rsi_sell": 1778851800000,
+  "NVDA:4h:div_bull": 1782754200000,
+  "MELI:4h:rsi_sell": 1784122200000,
+  "MELI:4h:rsi_buy": 1778765400000,
+  "MELI:4h:div_bull": 1773423000000,
+  "MELI:4h:div_bear": 1778175000000
 }
