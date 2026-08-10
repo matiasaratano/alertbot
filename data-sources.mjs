@@ -87,17 +87,24 @@ export async function fetchTwelveDataSeries(symbol, tf, apiKey, outputsize = 300
 }
 
 // Twelve Data free tier: 800 créditos/día, 8 req/min. Para no gastarlos de
-// más, esta función decide si CONVIENE pedir esta temporalidad ahora mismo
-// (solo cuando una vela de ese TF recién pudo haber cerrado), en vez de
-// pedirla en cada corrida del cron.
-export function isStockTimeframeDue(tf, now = new Date()) {
-  const minute = now.getUTCMinutes();
-  const hour = now.getUTCHours();
-  const toleranceMin = 12; // margen por si el cron de GitHub arranca con atraso
+// más, en vez de atarnos al minuto exacto del reloj (frágil si el cron de
+// GitHub arranca con atraso), guardamos en el estado CUÁNDO fue la última
+// vez que efectivamente chequeamos cada temporalidad, y disparamos apenas
+// pasó suficiente tiempo real — sin importar en qué minuto cae el tick.
+const STOCK_CHECK_INTERVAL_MS = {
+  "1h": 55 * 60 * 1000, // ~55 min: se dispara en cuanto puede, con margen
+  "4h": (4 * 60 - 10) * 60 * 1000,
+  "1d": (24 * 60 - 10) * 60 * 1000,
+};
 
-  if (tf === "15m") return true; // siempre, es la cadencia del propio cron
-  if (tf === "1h") return minute <= toleranceMin;
-  if (tf === "4h") return hour % 4 === 0 && minute <= toleranceMin;
-  if (tf === "1d") return hour === 20 && minute <= toleranceMin; // ~cierre NYSE (16:00 ET)
+export function isStockTimeframeDue(tf, state, now = Date.now()) {
+  const interval = STOCK_CHECK_INTERVAL_MS[tf];
+  if (!interval) return true; // temporalidad sin límite especial (ej. 15m)
+
+  const key = `_stockCheck:${tf}`;
+  const lastCheck = state[key] ?? 0;
+  if (now - lastCheck < interval) return false;
+
+  state[key] = now; // se marca al decidir que sí toca, no al terminar
   return true;
 }
