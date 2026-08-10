@@ -228,13 +228,21 @@ async function run() {
   }
 
   if (TWELVEDATA_API_KEY) {
+    console.log(`Hora UTC actual: ${now.toISOString()} (minuto=${now.getUTCMinutes()}, hora=${now.getUTCHours()})`);
     for (const symbol of STOCK_SYMBOLS) {
       for (const tf of TIMEFRAMES) {
-        if (!isStockTimeframeDue(tf, now)) continue;
+        if (!isStockTimeframeDue(tf, now)) {
+          console.log(`  ${symbol} ${tf}: salteado (no le toca este tick)`);
+          continue;
+        }
         try {
           const candles = await fetchTwelveDataSeries(symbol, tf, TWELVEDATA_API_KEY, 300);
+          console.log(`  ${symbol} ${tf}: ${candles.close.length} velas obtenidas`);
           const events = await analyzeSymbol(symbol, tf, candles);
           const accepted = processEvents(state, symbol, tf, events);
+          if (accepted.length > 0) {
+            console.log(`  ${symbol} ${tf}: ${accepted.length} señal(es) nueva(s)`);
+          }
           for (const ev of accepted) {
             messages.push(await composeMessage(symbol, tf, ev, false));
           }

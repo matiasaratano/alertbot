@@ -16,7 +16,7 @@ const KRAKEN_PAIR = {
   BTCUSDT: "XBTUSD",
   ETHUSDT: "ETHUSD",
   SOLUSDT: "SOLUSD",
-  BNBUSDT: "BNBUSD"
+  BNBUSDT: "BNBUSD",
 };
 
 const TWELVEDATA_INTERVAL = {
@@ -93,7 +93,7 @@ export async function fetchTwelveDataSeries(symbol, tf, apiKey, outputsize = 300
 export function isStockTimeframeDue(tf, now = new Date()) {
   const minute = now.getUTCMinutes();
   const hour = now.getUTCHours();
-  const toleranceMin = 8; // el cron corre cada 15 min, damos margen
+  const toleranceMin = 12; // margen por si el cron de GitHub arranca con atraso
 
   if (tf === "15m") return true; // siempre, es la cadencia del propio cron
   if (tf === "1h") return minute <= toleranceMin;
