@@ -70,5 +70,21 @@
   "MELI:4h:rsi_sell": 1784122200000,
   "MELI:4h:rsi_buy": 1778765400000,
   "MELI:4h:div_bull": 1773423000000,
-  "MELI:4h:div_bear": 1778175000000
+  "MELI:4h:div_bear": 1778175000000,
+  "BNBUSDT:1h:rsi_sell": 1786298400000,
+  "BNBUSDT:1h:rsi_buy": 1786089600000,
+  "BNBUSDT:1h:div_bear": 1786309200000,
+  "BNBUSDT:1h:div_bull": 1786086000000,
+  "BNBUSDT:4h:rsi_buy": 1782331200000,
+  "BNBUSDT:4h:div_bull": 1784894400000,
+  "BNBUSDT:4h:div_bear": 1785902400000,
+  "BNBUSDT:4h:rsi_sell": 1785456000000,
+  "BNBUSDT:1d:rsi_buy": 1771977600000,
+  "BNBUSDT:1d:div_bear": 1780272000000,
+  "BNBUSDT:1d:rsi_sell": 1780185600000,
+  "BNBUSDT:1d:div_bull": 1782864000000,
+  "META:1h:rsi_buy": 1785511800000,
+  "META:1h:rsi_sell": 1784133000000,
+  "META:1h:div_bull": 1783607400000,
+  "META:1h:div_bear": 1784212200000
 }
