@@ -12,8 +12,8 @@ import { sendTelegram } from "./telegram.mjs";
 // ============================================================
 // CONFIGURÁ ACÁ TUS SÍMBOLOS Y TEMPORALIDADES
 // ============================================================
-const CRYPTO_SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT"]; // ticker de Binance
-const STOCK_SYMBOLS = ["AAPL", "MSFT", "NVDA", "MELI", "GOOGL", "AMZN"]; // ticker de Twelve Data
+const CRYPTO_SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT"]; // ticker de Binance
+const STOCK_SYMBOLS = ["AAPL", "MSFT", "NVDA", "MELI", "GOOGL", "AMZN", "META"]; // ticker de Twelve Data
 const TIMEFRAMES = ["1h", "4h", "1d"];
 
 // mismos parámetros que el Pine Script original
