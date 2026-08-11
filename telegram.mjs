@@ -7,6 +7,6 @@ export async function sendTelegram(token, chatId, text) {
   });
   if (!res.ok) {
     const body = await res.text();
-    console.error(`Telegram error: HTTP ${res.status} - ${body}`);
+    throw new Error(`Telegram error: HTTP ${res.status} - ${body}`);
   }
 }

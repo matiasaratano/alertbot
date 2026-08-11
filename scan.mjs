@@ -25,6 +25,21 @@ const PIVOT_LEN = 5;
 const DIV_RANGE_MIN = 5;
 const DIV_RANGE_MAX = 60;
 
+// Señales más antiguas que esto se descartan siempre, sin importar el watermark.
+// Evita que señales de hace meses lleguen si el state.json quedó desactualizado.
+const MAX_AGE_BY_TF = {
+  "1h":  7 * 24 * 60 * 60 * 1000,  //  7 días
+  "4h": 14 * 24 * 60 * 60 * 1000,  // 14 días
+  "1d": 30 * 24 * 60 * 60 * 1000,  // 30 días
+};
+
+// Duración de cada vela en ms (para calcular cuántas barras mirar atrás en RSI)
+const TF_MS_SCAN = {
+  "1h":      60 * 60 * 1000,
+  "4h":  4 * 60 * 60 * 1000,
+  "1d": 24 * 60 * 60 * 1000,
+};
+
 const STATE_PATH = new URL("./state.json", import.meta.url);
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
@@ -56,12 +71,20 @@ async function analyzeSymbol(symbol, tf, candles) {
 
   const events = [];
 
-  // --- RSI buy/sell: revisamos TODO el historial, no solo la última vela,
-  // para no perder cruces que hayan ocurrido mientras el bot no corrió ---
+  // --- RSI buy/sell: revisamos el historial reciente (dentro de MAX_AGE_BY_TF),
+  // con un margen extra de barras para que el RMA de Wilder esté estabilizado.
+  // Seguimos calculando el RSI sobre todo el array para que el warmup sea correcto,
+  // pero solo buscamos cruces en la ventana temporal relevante.
   const rsi = rsiWilder(close, RSI_LEN);
   const { crossover: rsiBuy } = crossEvents(rsi, BUY_LEVEL);
   const { crossunder: rsiSell } = crossEvents(rsi, SELL_LEVEL);
-  for (let i = 0; i < close.length; i++) {
+
+  const maxAgeBars = MAX_AGE_BY_TF[tf]
+    ? Math.ceil(MAX_AGE_BY_TF[tf] / (TF_MS_SCAN[tf] || 60 * 60 * 1000)) + 5
+    : close.length;
+  const rsiStart = Math.max(RSI_LEN + 1, close.length - maxAgeBars);
+
+  for (let i = rsiStart; i < close.length; i++) {
     if (rsiBuy[i]) {
       events.push({ signal: "rsi_buy", idx: i, text: `🟢 BUY (RSI) — cruzó por encima de ${BUY_LEVEL}. RSI=${rsi[i].toFixed(1)}` });
     }
@@ -70,8 +93,9 @@ async function analyzeSymbol(symbol, tf, candles) {
     }
   }
 
-  // --- SQZMOM + divergencias: idem, tomamos TODAS las confirmadas en el
-  // historial disponible; el filtro de "ya avisada" lo hace el estado ---
+  // --- SQZMOM + divergencias: calculamos sobre todo el historial para que los
+  // pivots sean correctos, pero solo emitimos eventos dentro de MAX_AGE_BY_TF
+  // (consistente con el filtro RSI y con processEvents).
   const { val } = computeSqueezeMomentum(high, low, close, SQZ);
   const pivots = findPivots(val, PIVOT_LEN, PIVOT_LEN);
   const { bullish, bearish } = findDivergences(
@@ -80,11 +104,18 @@ async function analyzeSymbol(symbol, tf, candles) {
     { divRangeMin: DIV_RANGE_MIN, divRangeMax: DIV_RANGE_MAX }
   );
 
+  const maxAge = MAX_AGE_BY_TF[tf] ?? Infinity;
+  const nowMs = Date.now();
+
   for (const d of bullish) {
-    events.push({ signal: "div_bull", idx: d.idx, text: `📈 Divergencia ALCISTA de Momentum` });
+    const barTime = openTime[d.idx];
+    if (nowMs - barTime <= maxAge)
+      events.push({ signal: "div_bull", idx: d.idx, text: `📈 Divergencia ALCISTA de Momentum` });
   }
   for (const d of bearish) {
-    events.push({ signal: "div_bear", idx: d.idx, text: `📉 Divergencia BAJISTA de Momentum` });
+    const barTime = openTime[d.idx];
+    if (nowMs - barTime <= maxAge)
+      events.push({ signal: "div_bear", idx: d.idx, text: `📉 Divergencia BAJISTA de Momentum` });
   }
 
   return events
@@ -107,18 +138,42 @@ function processEvents(state, symbol, tf, events) {
 
   const sentThisRun = {};
   const accepted = [];
+  const now = Date.now();
+  const maxAge = MAX_AGE_BY_TF[tf] ?? Infinity;
 
   for (const ev of events) {
     const key = stateKey(symbol, tf, ev.signal);
+    const barIso = new Date(ev.barTime).toISOString();
 
-    if (!wasKnown[key]) continue; // clave nueva: no mandamos historial, solo marcamos
+    // Filtro 1: señal demasiado antigua — descartamos sin importar el watermark
+    const age = now - ev.barTime;
+    if (age > maxAge) {
+      console.log(`[SKIP OLD]  ${key} barTime=${barIso} age=${Math.round(age / 86400000)}d`);
+      continue;
+    }
 
+    // Filtro 2: clave nueva (primer bootstrap) — no mandamos historial, solo marcamos
+    if (!wasKnown[key]) {
+      console.log(`[SKIP NEW]  ${key} barTime=${barIso} (clave nueva, sin historial previo)`);
+      continue;
+    }
+
+    // Filtro 3: ya avisada en una corrida anterior
     const watermark = state[key];
-    if (ev.barTime <= watermark) continue; // ya avisada en una corrida anterior
+    const wmIso = watermark != null ? new Date(watermark).toISOString() : "ninguno";
+    if (ev.barTime <= watermark) {
+      console.log(`[SKIP DUP]  ${key} barTime=${barIso} watermark=${wmIso}`);
+      continue;
+    }
 
+    // Filtro 4: tope de seguridad anti-inundación
     sentThisRun[key] = (sentThisRun[key] ?? 0) + 1;
-    if (sentThisRun[key] > MAX_ALERTS_PER_KEY_PER_RUN) continue; // tope de seguridad
+    if (sentThisRun[key] > MAX_ALERTS_PER_KEY_PER_RUN) {
+      console.log(`[SKIP FLOOD] ${key} barTime=${barIso} (límite ${MAX_ALERTS_PER_KEY_PER_RUN}/corrida)`);
+      continue;
+    }
 
+    console.log(`[SEND]      ${key} barTime=${barIso} watermark=${wmIso}`);
     accepted.push(ev);
   }
 
@@ -158,9 +213,11 @@ async function higherTfContext(symbol, tf, isCrypto) {
   const higherTf = HIGHER_TF[tf];
   if (!higherTf) return null;
   try {
+    // Solo necesitamos el último valor del RSI: con 30 velas el RMA de Wilder
+    // ya está bien estabilizado (RSI_LEN=14, warmup ~20 barras).
     const candles = isCrypto
-      ? await fetchKrakenKlines(symbol, higherTf, 100)
-      : await fetchTwelveDataSeries(symbol, higherTf, TWELVEDATA_API_KEY, 100);
+      ? await fetchKrakenKlines(symbol, higherTf, 30)
+      : await fetchTwelveDataSeries(symbol, higherTf, TWELVEDATA_API_KEY, 30);
     const rsi = rsiWilder(candles.close, RSI_LEN);
     const lastRsi = rsi[rsi.length - 1];
     if (lastRsi == null) return null;
@@ -193,6 +250,7 @@ async function composeMessage(symbol, tf, ev, isCrypto) {
     `${tfEmphasis(tf)}${ev.text}`,
     `<b>${symbol}</b> · ${tf}`,
     `🕒 Vela: ${formatBarDate(ev.barTime)} (ART)`,
+    `📬 Detectada: ${formatBarDate(Date.now())} (ART)`,
   ];
 
   const context = await higherTfContext(symbol, tf, isCrypto);
