@@ -70,7 +70,7 @@
   "MELI:4h:rsi_sell": 1784122200000,
   "MELI:4h:rsi_buy": 1778765400000,
   "MELI:4h:div_bull": 1773423000000,
-  "MELI:4h:div_bear": 1778175000000,
+  "MELI:4h:div_bear": 1785951000000,
   "BNBUSDT:1h:rsi_sell": 1786302000000,
   "BNBUSDT:1h:rsi_buy": 1786089600000,
   "BNBUSDT:1h:div_bear": 1786309200000,
@@ -95,6 +95,16 @@
   "MSFT:1d:rsi_buy": 1782432000000,
   "MSFT:1d:div_bull": 1775001600000,
   "_stockCheck:1h": 1786447703112,
-  "_stockCheck:4h": 1786434746782,
-  "_stockCheck:1d": 1786417825719
+  "_stockCheck:4h": 1786450188079,
+  "_stockCheck:1d": 1786417825719,
+  "GOOGL:4h:rsi_sell": 1785936600000,
+  "GOOGL:4h:rsi_buy": 1785159000000,
+  "GOOGL:4h:div_bull": 1781184600000,
+  "AMZN:4h:rsi_buy": 1785418200000,
+  "AMZN:4h:div_bear": 1784208600000,
+  "AMZN:4h:rsi_sell": 1785936600000,
+  "AMZN:4h:div_bull": 1782495000000,
+  "META:4h:rsi_buy": 1785519000000,
+  "META:4h:rsi_sell": 1784208600000,
+  "META:4h:div_bull": 1782495000000
 }
