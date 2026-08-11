@@ -93,5 +93,8 @@
   "MSFT:1d:rsi_sell": 1780358400000,
   "MSFT:1d:div_bear": 1780358400000,
   "MSFT:1d:rsi_buy": 1782432000000,
-  "MSFT:1d:div_bull": 1775001600000
+  "MSFT:1d:div_bull": 1775001600000,
+  "_stockCheck:1h": 1786417825719,
+  "_stockCheck:4h": 1786417825719,
+  "_stockCheck:1d": 1786417825719
 }
