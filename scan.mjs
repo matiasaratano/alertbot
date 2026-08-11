@@ -228,13 +228,13 @@ async function run() {
   }
 
   if (TWELVEDATA_API_KEY) {
-    console.log(`Hora UTC actual: ${now.toISOString()} (minuto=${now.getUTCMinutes()}, hora=${now.getUTCHours()})`);
-    for (const symbol of STOCK_SYMBOLS) {
-      for (const tf of TIMEFRAMES) {
-        if (!isStockTimeframeDue(tf, now)) {
-          console.log(`  ${symbol} ${tf}: salteado (no le toca este tick)`);
-          continue;
-        }
+    console.log(`Hora UTC actual: ${now.toISOString()}`);
+    for (const tf of TIMEFRAMES) {
+      if (!isStockTimeframeDue(tf, state, now.getTime())) {
+        console.log(`  [stocks ${tf}]: salteado (todavía no pasó el intervalo desde el último chequeo)`);
+        continue;
+      }
+      for (const symbol of STOCK_SYMBOLS) {
         try {
           const candles = await fetchTwelveDataSeries(symbol, tf, TWELVEDATA_API_KEY, 300);
           console.log(`  ${symbol} ${tf}: ${candles.close.length} velas obtenidas`);
