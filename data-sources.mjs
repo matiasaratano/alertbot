@@ -1,110 +1,60 @@
-// data-sources.mjs
-// Devuelven siempre el mismo formato: { openTime:[], high:[], low:[], close:[] }
-// y garantizan que la ÚLTIMA vela devuelta esté CERRADA (se descarta la vela
-// en formación si el candle actual todavía no cerró).
+import { TF_MS, SETTLEMENT_MS } from './config.mjs';
+import { stockBarTimes } from './market-calendar.mjs';
+const KRAKEN_PAIR = { BTCUSD:'XBTUSD', ETHUSD:'ETHUSD', SOLUSD:'SOLUSD', BNBUSD:'BNBUSD' };
+const TWELVEDATA_INTERVAL = { '15m':'15min', '1h':'1h', '4h':'4h', '1d':'1day' };
 
-const KRAKEN_INTERVAL = {
-  "15m": 15,
-  "1h": 60,
-  "4h": 240,
-  "1d": 1440,
-};
-
-// Kraken usa nombres de par propios (XBT en vez de BTC, cotizado en USD).
-// Si sumás más cryptos a CRYPTO_SYMBOLS en scan.mjs, agregá su par acá.
-const KRAKEN_PAIR = {
-  BTCUSDT: "XBTUSD",
-  ETHUSDT: "ETHUSD",
-  SOLUSDT: "SOLUSD",
-  BNBUSDT: "BNBUSD",
-};
-
-const TWELVEDATA_INTERVAL = {
-  "15m": "15min",
-  "1h": "1h",
-  "4h": "4h",
-  "1d": "1day",
-};
-
-// cuánto dura cada vela en ms, para saber si la última está cerrada
-const TF_MS = {
-  "15m": 15 * 60 * 1000,
-  "1h": 60 * 60 * 1000,
-  "4h": 4 * 60 * 60 * 1000,
-  "1d": 24 * 60 * 60 * 1000,
-};
-
-function dropUnclosedCandle(openTimes, arrays, tf) {
-  const n = openTimes.length;
-  if (n === 0) return { openTime: openTimes, ...arrays };
-  const lastOpen = openTimes[n - 1];
-  const lastClose = lastOpen + TF_MS[tf];
-  if (lastClose > Date.now()) {
-    // la última vela todavía no cerró: la recortamos
-    const trimmed = { openTime: openTimes.slice(0, -1) };
-    for (const k of Object.keys(arrays)) trimmed[k] = arrays[k].slice(0, -1);
-    return trimmed;
+export function normalizeCandles(rows, now = Date.now()) {
+  const ordered = rows.slice().sort((a,b)=>a.open-b.open);
+  const result = { openTime:[], closeTime:[], high:[], low:[], close:[] };
+  let previous = -Infinity;
+  for (const row of ordered) {
+    if (![row.open,row.end,row.high,row.low,row.close].every(Number.isFinite)
+      || row.open <= previous || row.end <= row.open || row.high < row.low
+      || row.close < row.low || row.close > row.high) throw new Error('Serie OHLC inválida o duplicada');
+    previous = row.open;
+    if (row.end + SETTLEMENT_MS > now) continue;
+    result.openTime.push(row.open); result.closeTime.push(row.end);
+    result.high.push(row.high); result.low.push(row.low); result.close.push(row.close);
   }
-  return { openTime: openTimes, ...arrays };
+  return result;
 }
-
-export async function fetchKrakenKlines(symbol, tf, limit = 300) {
-  const pair = KRAKEN_PAIR[symbol] || symbol;
-  const interval = KRAKEN_INTERVAL[tf];
-  const url = `https://api.kraken.com/0/public/OHLC?pair=${pair}&interval=${interval}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Kraken ${symbol} ${tf}: HTTP ${res.status}`);
-  const data = await res.json();
-  if (data.error && data.error.length) {
-    throw new Error(`Kraken ${symbol} ${tf}: ${data.error.join(", ")}`);
-  }
-  const resultKey = Object.keys(data.result).find((k) => k !== "last");
-  const rows = (data.result[resultKey] || []).slice(-limit);
-  const openTime = rows.map((r) => r[0] * 1000); // Kraken da segundos, pasamos a ms
-  const high = rows.map((r) => parseFloat(r[2]));
-  const low = rows.map((r) => parseFloat(r[3]));
-  const close = rows.map((r) => parseFloat(r[4]));
-  return dropUnclosedCandle(openTime, { high, low, close }, tf);
+export async function fetchKrakenKlines(symbol, tf, limit = 500) {
+  if (!TF_MS[tf]) throw new Error(`Temporalidad inválida: ${tf}`);
+  const pair = KRAKEN_PAIR[symbol];
+  if (!pair) throw new Error(`Par Kraken no configurado: ${symbol}`);
+  const url = new URL('https://api.kraken.com/0/public/OHLC');
+  url.search = new URLSearchParams({pair, interval:String(TF_MS[tf]/60000)});
+  const response = await fetch(url, {signal:AbortSignal.timeout(20000)});
+  if (!response.ok) throw new Error(`Kraken HTTP ${response.status}`);
+  const data = await response.json();
+  if (data.error?.length) throw new Error(`Kraken: ${data.error.join(', ')}`);
+  const key = Object.keys(data.result ?? {}).find(k=>k!=='last');
+  if (!key || !Array.isArray(data.result[key])) throw new Error('Kraken: respuesta sin velas');
+  // Kraken documenta que el último registro SIEMPRE está sin confirmar.
+  const rows = data.result[key].slice(0,-1).slice(-limit).map(r=>({
+    open:Number(r[0])*1000, end:Number(r[0])*1000+TF_MS[tf],
+    high:Number(r[2]), low:Number(r[3]), close:Number(r[4]),
+  }));
+  return normalizeCandles(rows);
 }
-
-export async function fetchTwelveDataSeries(symbol, tf, apiKey, outputsize = 300) {
+let lastTwelveRequest = 0;
+export async function fetchTwelveDataSeries(symbol, tf, apiKey, outputsize = 500) {
   const interval = TWELVEDATA_INTERVAL[tf];
-  const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(
-    symbol
-  )}&interval=${interval}&outputsize=${outputsize}&timezone=UTC&apikey=${apiKey}&order=ASC`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`TwelveData ${symbol} ${tf}: HTTP ${res.status}`);
-  const data = await res.json();
-  if (data.status === "error") {
-    throw new Error(`TwelveData ${symbol} ${tf}: ${data.message}`);
-  }
-  const values = data.values || [];
-  const openTime = values.map((v) => new Date(v.datetime + "Z").getTime());
-  const high = values.map((v) => parseFloat(v.high));
-  const low = values.map((v) => parseFloat(v.low));
-  const close = values.map((v) => parseFloat(v.close));
-  return dropUnclosedCandle(openTime, { high, low, close }, tf);
-}
-
-// Twelve Data free tier: 800 créditos/día, 8 req/min. Para no gastarlos de
-// más, en vez de atarnos al minuto exacto del reloj (frágil si el cron de
-// GitHub arranca con atraso), guardamos en el estado CUÁNDO fue la última
-// vez que efectivamente chequeamos cada temporalidad, y disparamos apenas
-// pasó suficiente tiempo real — sin importar en qué minuto cae el tick.
-const STOCK_CHECK_INTERVAL_MS = {
-  "1h": 55 * 60 * 1000, // ~55 min: se dispara en cuanto puede, con margen
-  "4h": (4 * 60 - 10) * 60 * 1000,
-  "1d": (24 * 60 - 10) * 60 * 1000,
-};
-
-export function isStockTimeframeDue(tf, state, now = Date.now()) {
-  const interval = STOCK_CHECK_INTERVAL_MS[tf];
-  if (!interval) return true; // temporalidad sin límite especial (ej. 15m)
-
-  const key = `_stockCheck:${tf}`;
-  const lastCheck = state[key] ?? 0;
-  if (now - lastCheck < interval) return false;
-
-  state[key] = now; // se marca al decidir que sí toca, no al terminar
-  return true;
+  if (!interval) throw new Error(`Temporalidad inválida: ${tf}`);
+  const wait = Math.max(0, 8100-(Date.now()-lastTwelveRequest));
+  if (wait) await new Promise(resolve=>setTimeout(resolve,wait));
+  lastTwelveRequest=Date.now();
+  const url = new URL('https://api.twelvedata.com/time_series');
+  url.search = new URLSearchParams({symbol,interval,outputsize:String(outputsize),timezone:'UTC',
+    apikey:apiKey,order:'ASC',prepost:'false',adjust:'splits'});
+  const response = await fetch(url, {signal:AbortSignal.timeout(20000)});
+  if (!response.ok) throw new Error(`Twelve Data HTTP ${response.status}`);
+  const data = await response.json();
+  if (data.status==='error') throw new Error(`Twelve Data: código ${data.code ?? 'desconocido'}`);
+  if (!Array.isArray(data.values) || !data.values.length) throw new Error('Twelve Data: respuesta sin velas');
+  const rows = data.values.map(v=>{
+    const times = stockBarTimes(v.datetime,tf);
+    return {open:times.open,end:times.close,high:Number(v.high),low:Number(v.low),close:Number(v.close)};
+  });
+  return normalizeCandles(rows);
 }

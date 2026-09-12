@@ -1,7 +1,7 @@
 import fs from "fs";
 import { sendTelegram } from "./telegram.mjs";
 
-const THRESHOLD_MINUTES = 90; // más que suficiente margen sobre el cron de 15 min
+const THRESHOLD_MINUTES = 30; // margen sobre el cron de 5 minutos
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
@@ -23,8 +23,8 @@ async function main() {
   const lastRun = heartbeat?.lastRun ? new Date(heartbeat.lastRun).getTime() : null;
   const minutesSince = lastRun ? (Date.now() - lastRun) / 60000 : null;
 
-  if (!lastRun || minutesSince > THRESHOLD_MINUTES) {
-    const detail = lastRun
+  if (!lastRun || minutesSince > THRESHOLD_MINUTES || heartbeat?.healthy === false) {
+    const detail = heartbeat?.healthy === false ? "La última corrida tuvo errores. Revisá los logs." : lastRun
       ? `Última corrida hace ${Math.round(minutesSince)} minutos.`
       : "Nunca se registró una corrida (heartbeat.json ausente).";
     const msg = `⚠️ <b>Alertbot: posible corte</b>\n${detail}\nRevisá la pestaña Actions del repo — puede que el cron esté trabado o deshabilitado.`;

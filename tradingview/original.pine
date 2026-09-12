@@ -1,0 +1,133 @@
+//@version=5
+indicator("SQZMOM + RSI Signal (precio) + Momentum Div (panel) v4", overlay=false, max_lines_count=300, max_labels_count=300)
+
+//==============================================================================
+// GRUPOS DE CONFIGURACIÓN
+//==============================================================================
+GRP_RSI   = "Configuración RSI"
+GRP_SQZ   = "Configuración Squeeze Momentum"
+GRP_DIV   = "Divergencia de Momentum"
+GRP_VIS   = "Filtros Visuales"
+
+//------------------------------------------------------------------------------
+// RSI
+//------------------------------------------------------------------------------
+showRsiSignals = input.bool(true, "Mostrar Señales RSI en Precio", group=GRP_RSI)
+rsiLen         = input.int(14, "Período RSI", minval=1, group=GRP_RSI)
+buyLevel       = input.int(30, "Nivel Sobreventa (BUY)", minval=1, maxval=50, group=GRP_RSI)
+sellLevel      = input.int(70, "Nivel Sobrecompra (SELL)", minval=50, maxval=99, group=GRP_RSI)
+
+rsi = ta.rsi(close, rsiLen)
+
+buySignal  = ta.crossover(rsi, buyLevel)
+sellSignal = ta.crossunder(rsi, sellLevel)
+
+//------------------------------------------------------------------------------
+// SQZMOM
+//------------------------------------------------------------------------------
+length    = input.int(20, "BB Length", minval=1, group=GRP_SQZ)
+mult      = input.float(2.0, "BB Mult", minval=0.1, group=GRP_SQZ)
+lengthKC  = input.int(20, "KC Length", minval=1, group=GRP_SQZ)
+multKC    = input.float(1.5, "KC Mult", minval=0.1, group=GRP_SQZ)
+
+basis   = ta.sma(close, length)
+dev     = mult * ta.stdev(close, length)
+upperBB = basis + dev
+lowerBB = basis - dev
+
+ma      = ta.sma(close, lengthKC)
+rangema = ta.sma(ta.tr, lengthKC)
+upperKC = ma + rangema * multKC
+lowerKC = ma - rangema * multKC
+
+sqzOn  = lowerBB > lowerKC and upperBB < upperKC
+sqzOff = lowerBB < lowerKC and upperBB > upperKC
+
+val = ta.linreg(close - math.avg(math.avg(ta.highest(high, lengthKC), ta.lowest(low, lengthKC)), ta.sma(close, lengthKC)), lengthKC, 0)
+
+histColor = val > 0 ? (val > val[1] ? color.lime : color.green) : (val < val[1] ? color.red : color.maroon)
+plot(val, title="Histograma Momentum", style=plot.style_histogram, linewidth=4, color=histColor)
+
+// Puntos Squeeze
+sqzColor = sqzOn ? color.gray : sqzOff ? color.blue : color.black
+plot(0, title="Punto Squeeze", style=plot.style_cross, linewidth=2, color=sqzColor)
+hline(0, color=color.new(color.white, 50), linestyle=hline.style_dotted)
+
+//------------------------------------------------------------------------------
+// PLOTSHAPE DE PRECIO (FORCE OVERLAY)
+//------------------------------------------------------------------------------
+plotshape(showRsiSignals and buySignal, title="BUY Signal", style=shape.triangleup, 
+          location=location.belowbar, color=color.green, size=size.small, 
+          text="BUY", textcolor=color.white, force_overlay=true)
+
+plotshape(showRsiSignals and sellSignal, title="SELL Signal", style=shape.triangledown, 
+          location=location.abovebar, color=color.red, size=size.small, 
+          text="SELL", textcolor=color.white, force_overlay=true)
+
+//------------------------------------------------------------------------------
+// DIVERGENCIAS DE MOMENTUM
+//------------------------------------------------------------------------------
+showDivs    = input.bool(true, "Dibujar Divergencias", group=GRP_DIV)
+pivotLen    = input.int(5, "Pivot Length", minval=1, group=GRP_DIV, tooltip="Barras a izquierda/derecha para confirmar pivote")
+divRangeMin = input.int(5, "Mínimo de Barras entre Pivotes", minval=1, group=GRP_DIV)
+divRangeMax = input.int(60, "Máximo de Barras entre Pivotes", minval=1, group=GRP_DIV)
+
+momHigh = ta.pivothigh(val, pivotLen, pivotLen)
+momLow  = ta.pivotlow(val, pivotLen, pivotLen)
+
+var float lastHigh      = na
+var float lastLow       = na
+var float lastHighPrice = na
+var float lastLowPrice  = na
+var int   lastHighBar   = na
+var int   lastLowBar    = na
+
+momBearDiv = false
+momBullDiv = false
+
+if not na(momHigh)
+    barsSinceHigh = (bar_index - pivotLen) - lastHighBar
+    priceHigh     = high[pivotLen]
+
+    if not na(lastHigh) and momHigh < lastHigh and priceHigh > lastHighPrice and barsSinceHigh >= divRangeMin and barsSinceHigh <= divRangeMax
+        momBearDiv := true
+        if showDivs
+            line.new(lastHighBar, lastHigh, bar_index - pivotLen, momHigh, width=2, color=color.red)
+            label.new(bar_index - pivotLen, momHigh, "Bear Div", style=label.style_label_down, color=color.red, textcolor=color.white, size=size.tiny)
+
+    lastHigh      := momHigh
+    lastHighPrice := priceHigh
+    lastHighBar   := bar_index - pivotLen
+
+if not na(momLow)
+    barsSinceLow = (bar_index - pivotLen) - lastLowBar
+    priceLow     = low[pivotLen]
+
+    if not na(lastLow) and momLow > lastLow and priceLow < lastLowPrice and barsSinceLow >= divRangeMin and barsSinceLow <= divRangeMax
+        momBullDiv := true
+        if showDivs
+            line.new(lastLowBar, lastLow, bar_index - pivotLen, momLow, width=2, color=color.lime)
+            label.new(bar_index - pivotLen, momLow, "Bull Div", style=label.style_label_up, color=color.lime, textcolor=color.white, size=size.tiny)
+
+    lastLow      := momLow
+    lastLowPrice := priceLow
+    lastLowBar   := bar_index - pivotLen
+
+//==============================================================================
+// ALERTAS (STATIC & DYNAMIC)
+//==============================================================================
+// Alertas dinámicas con alert()
+if buySignal and showRsiSignals
+    alert("RSI Buy Signal en " + syminfo.ticker, alert.freq_once_per_bar_close)
+if sellSignal and showRsiSignals
+    alert("RSI Sell Signal en " + syminfo.ticker, alert.freq_once_per_bar_close)
+if momBullDiv
+    alert("Divergencia Alcista detectada en " + syminfo.ticker, alert.freq_once_per_bar_close)
+if momBearDiv
+    alert("Divergencia Bajista detectada en " + syminfo.ticker, alert.freq_once_per_bar_close)
+
+// Alertconditions tradicionales
+alertcondition(buySignal, title="BUY (RSI)", message="RSI cruza hacia arriba el nivel de sobreventa")
+alertcondition(sellSignal, title="SELL (RSI)", message="RSI cruza hacia abajo el nivel de sobrecompra")
+alertcondition(momBullDiv, title="Divergencia Alcista (Momentum)", message="Posible divergencia alcista en Momentum")
+alertcondition(momBearDiv, title="Divergencia Bajista (Momentum)", message="Posible divergencia bajista en Momentum")

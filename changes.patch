@@ -1,0 +1,718 @@
+--- a/.env.example
++++ b/.env.example
+@@ -0,0 +1,4 @@
++TELEGRAM_TOKEN=
++TELEGRAM_CHAT_ID=
++TWELVEDATA_API_KEY=
++MAX_ALERT_DELAY_MINUTES=120
+--- a/.github/workflows/scan.yml
++++ b/.github/workflows/scan.yml
+@@ -2,7 +2,7 @@
+ 
+ on:
+   schedule:
+-    - cron: "*/15 * * * *"
++    - cron: "2-59/5 * * * *"
+   workflow_dispatch: {} # botón "Run workflow" manual en GitHub para probar
+ 
+ # evita que dos corridas se pisen entre sí (una corrida lenta + el próximo
+@@ -17,6 +17,7 @@
+ jobs:
+   scan:
+     runs-on: ubuntu-latest
++    timeout-minutes: 12
+     steps:
+       - uses: actions/checkout@v4
+ 
+@@ -27,7 +28,11 @@
+         with:
+           node-version: "22"
+ 
++      - name: Run regression tests
++        run: npm test
++
+       - name: Run scan
++        id: scan
+         env:
+           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+@@ -35,10 +40,13 @@
+         run: node scan.mjs
+ 
+       - name: Persist state.json
++        if: ${{ always() && steps.scan.outcome != 'skipped' }}
+         run: |
+           git config user.name "alertbot"
+           git config user.email "alertbot@users.noreply.github.com"
+-          git add state.json heartbeat.json
++          for file in state.json heartbeat.json; do
++            if [ -f "$file" ]; then git add "$file"; fi
++          done
+           if git diff --staged --quiet; then
+             echo "Sin cambios de estado, nada que commitear."
+             exit 0
+--- a/.github/workflows/watchdog.yml
++++ b/.github/workflows/watchdog.yml
+@@ -2,7 +2,7 @@
+ 
+ on:
+   schedule:
+-    - cron: "0 */2 * * *"
++    - cron: "14,44 * * * *"
+   workflow_dispatch: {}
+ 
+ jobs:
+--- a/.gitignore
++++ b/.gitignore
+@@ -0,0 +1,11 @@
++.DS_Store
++._*
++.env
++.env.*
++!.env.example
++scan.lock
++state.json.tmp
++node_modules/
++__pycache__/
++*.zip
++.calendar-venv/
+--- a/README.md
++++ b/README.md
+@@ -1,13 +1,25 @@
++# Versión actual: preaviso con giro de una vela cerrada
++
++Se reemplazó la candidata intrabar por el punto intermedio acordado. Para una señal alcista, el momentum debe formar un mínimo local más alto que el pivot anterior, con un mínimo de precio más bajo; la siguiente vela debe CERRAR con momentum mayor que el del candidato. Para una bajista se invierten las condiciones. La referencia anterior sigue siendo un pivot confirmado con cinco barras a derecha. El candidato debe ser extremo respecto de cinco barras a izquierda.
++
++El aviso llega al cierre de la primera vela posterior al candidato, no durante ella. Si momentum sigue en la misma dirección o permanece plano, no hay aviso. Cada candidato se evalúa una sola vez; un extremo posterior distinto puede producir otro preaviso. La distancia de 5–60 barras se mide entre extremos, sin sumar la barra que confirma el giro.
++
++La línea discontinua termina en el extremo candidato; la etiqueta PRE aparece en la barra donde se conoce el giro, para no confundir una marca retrospectiva con una señal disponible antes. PRE sigue siendo un preaviso y puede fallar; no se ha demostrado estadísticamente una mejora de precisión.
++
++Para pegar, crear un indicador nuevo y copiar TODO `tradingview/alertbot.txt`, desde la primera línea `//@version=6`. Guardar y recrear la alerta con “Any alert() function call”. Las confirmadas de cinco velas están desactivadas por defecto y se pueden activar por separado. Se mantiene la versión anterior confirmada en `tradingview/confirmed.pine`.
++
++El bot usa la misma regla sobre velas cerradas. Su aviso agrega la demora del proveedor y la siguiente ejecución del cron. Esta actualización es local: no se publicó en el repositorio ni en TradingView, ni se enviaron mensajes reales. La compilación del Pine en TradingView sigue pendiente.
++
+ # Alertbot corregido — RSI + SQZMOM + Telegram
+ 
+ Escanea BTCUSD, ETHUSD, SOLUSD y BNBUSD en Kraken; AAPL, MSFT, NVDA, MELI, GOOGL, AMZN y META en Twelve Data. Temporalidades: 1h, 4h y 1d. Los parámetros están en `config.mjs` y deben coincidir con los inputs de TradingView.
+ 
+-Incluye `tradingview/alertbot.pine`, versión corregida del indicador aportado. `tradingview/original.pine` conserva la referencia. No se cambiaron las condiciones de estrategia: BUY al cruzar hacia arriba de 30, SELL al cruzar hacia abajo de 70 y divergencias entre pivots consecutivos de momentum.
++Incluye `tradingview/alertbot.pine`, versión corregida del indicador aportado. `tradingview/original.pine` conserva la referencia. Se conserva el modo confirmado original y se agrega un modo de giro de una vela por defecto. En el modo confirmado: BUY al cruzar hacia arriba de 30, SELL al cruzar hacia abajo de 70 y divergencias entre pivots consecutivos de momentum.
+ 
+ ## Qué cambia
+ 
+-- Las señales del Pine se confirman al cierre. Las divergencias mantienen la etiqueta sobre el pivot y agregan una marca CONF sobre la barra donde se conocen.
+-- El scanner distingue apertura del pivot y cierre de confirmación. Las divergencias necesitan cinco barras posteriores; esto es propio del indicador.
++- El Pine muestra PRE Bull / PRE Bear al cierre de una vela que confirme el giro de momentum. El extremo candidato esta en la vela anterior; se compara contra el ultimo pivot establecido con cinco barras a derecha. No avisa intrabar. El modo confirmado opcional conserva las marcas CONF.
++- El scanner usa DIVERGENCE_MODE=turn por defecto: espera una barra cerrada a derecha del extremo candidato. La alternativa confirmed espera cinco barras; both muestra ambas clases. RSI no cambia.
+ - Cada envío se guarda solo después de recibir `ok: true` de Telegram. Si otro envío falla, no se descarta su señal ni se repiten intencionalmente los envíos ya confirmados.
+ - Se inicializan todas las señales al iniciar, incluso fuera del horario de acciones. No se reenvía historial de antes del primer arranque.
+ - Los cierres de acciones respetan la sesión regular estadounidense, DST, feriados y cierres anticipados. El diario cierra al terminar la sesión, no 24 horas después de una fecha interpretada como UTC.
+@@ -22,7 +34,7 @@
+ 2. Usar Node.js 22 o posterior y ejecutar `npm test`. No se necesitan paquetes npm ni Python para escanear.
+ 3. En GitHub, mantener los secrets `TELEGRAM_TOKEN`, `TELEGRAM_CHAT_ID` y, para acciones, `TWELVEDATA_API_KEY`. Ejecutar el workflow manualmente y revisar el resultado.
+ 4. En TradingView, pegar `tradingview/alertbot.pine` en Pine Editor, guardar y agregar al gráfico. Usar velas estándar, los mismos parámetros y la misma fuente: `KRAKEN:BTCUSD`, etc.; para acciones, sesión regular y ajuste por splits. No comparar contra Binance/USDT, Heikin Ashi o sesiones extendidas esperando igualdad.
+-5. Recrear las alertas de TradingView después del cambio: las existentes conservan una copia del script y sus inputs. Para avisos agrupados, elegir “Any alert() function call”. Para una condición individual, elegir la correspondiente y frecuencia “Once Per Bar Close”. Evitar activar ambas variantes si no se quieren avisos duplicados del mismo evento.
++5. Recrear las alertas de TradingView después del cambio: las existentes conservan una copia del script y sus inputs. Para avisos agrupados, elegir “Any alert() function call”. Para una condición individual, elegir PRE Bull giro 1 vela o PRE Bear giro 1 vela y frecuencia “Once Per Bar Close”; usar la misma frecuencia para RSI o confirmadas. Evitar activar ambas variantes si no se quieren avisos duplicados del mismo evento.
+ 
+ El scanner de Telegram continúa siendo independiente de las alertas de TradingView: este paquete no crea un webhook ni conecta automáticamente las dos rutas.
+ 
+@@ -73,7 +85,7 @@
+ 
+ ## Validación y fuentes
+ 
+-24 pruebas automatizadas aprobadas. Simulación real de cuatro chequeos crypto sin envíos ni estado. Consulta pública de BNBUSD: par disponible. Muestra pública de AAPL 1h: alineación UTC compatible con apertura NY. Pine comparado a nivel de código; pendiente compilación y contraste visual en TradingView. No se enviaron mensajes reales ni se desplegó esta copia.
++30 pruebas automatizadas aprobadas. Las nuevas pruebas comprueban el giro de una vela, rechazan continuación y momentum plano, prueban simetría alcista/bajista, ausencia de dependencia futura y formato del archivo para pegar; no compilan Pine. Simulación real de cuatro chequeos crypto sin envíos ni estado. Consulta pública de BNBUSD: par disponible. Muestra pública de AAPL 1h: alineación UTC compatible con apertura NY. Pine comparado a nivel de código; pendiente compilación y contraste visual en TradingView. No se enviaron mensajes reales ni se desplegó esta copia.
+ 
+ - [TradingView: alertas y copias del script](https://www.tradingview.com/pine-script-docs/concepts/alerts/)
+ - [Kraken: último registro OHLC sin confirmar](https://docs.kraken.com/api-reference/market-data/get-ohlc-data)
+--- a/config.mjs
++++ b/config.mjs
+@@ -3,7 +3,7 @@
+ export const STOCK_SYMBOLS = ['AAPL', 'MSFT', 'NVDA', 'MELI', 'GOOGL', 'AMZN', 'META'];
+ export const TIMEFRAMES = ['1h', '4h', '1d'];
+ export const TF_MS = { '15m': 900000, '1h': 3600000, '4h': 14400000, '1d': 86400000 };
+-export const SIGNALS = ['rsi_buy', 'rsi_sell', 'div_bull', 'div_bear'];
++export const SIGNALS = ['rsi_buy', 'rsi_sell', 'div_bull', 'div_bear', 'pre_bull', 'pre_bear'];
+ export const INDICATOR = {
+   rsiLen: 14, buyLevel: 30, sellLevel: 70,
+   sqz: { length: 20, mult: 2, lengthKC: 20, multKC: 1.5 },
+@@ -17,3 +17,6 @@
+   if (!Number.isFinite(minutes) || minutes <= 0) throw new Error('MAX_ALERT_DELAY_MINUTES inválido');
+   return minutes * 60000;
+ }
++
++// turn: giro de una vela cerrada; confirmed: pivots de cinco barras; both: ambos.
++export const DIVERGENCE_MODE = 'turn';
+--- a/indicators.mjs
++++ b/indicators.mjs
+@@ -221,3 +221,33 @@
+ 
+   return { bullish, bearish };
+ }
++
++// Preaviso: extremo con pivotLen barras a izquierda y UNA barra a derecha.
++// El array debe contener solo velas cerradas. confirmedIdx indica cuando
++// se conoce el giro, no cuando se formo el extremo candidato.
++export function findTurnDivergences(val, highs, lows, {pivotLen=5,divRangeMin=5,divRangeMax=60}={}) {
++  const pivots=findPivots(val,pivotLen,pivotLen);
++  const highAt=new Map(pivots.highs.map(p=>[p.idx+pivotLen,p]));
++  const lowAt=new Map(pivots.lows.map(p=>[p.idx+pivotLen,p]));
++  const bullish=[],bearish=[];
++  let lastHigh,lastLow;
++  for(let i=0;i<val.length;i++) {
++    const candidate=i-1;
++    const left=val.slice(Math.max(0,candidate-pivotLen),Math.max(0,candidate));
++    const ready=candidate>=pivotLen && left.length===pivotLen
++      && left.every(Number.isFinite) && Number.isFinite(val[candidate]) && Number.isFinite(val[i]);
++    const inRange=p=>p && candidate-p.idx>=divRangeMin && candidate-p.idx<=divRangeMax;
++    const bull=Boolean(ready && inRange(lastLow) && val[candidate]<=Math.min(...left)
++      && val[candidate]>lastLow.value && lows[candidate]<lows[lastLow.idx]
++      && val[i]>val[candidate]);
++    const bear=Boolean(ready && inRange(lastHigh) && val[candidate]>=Math.max(...left)
++      && val[candidate]<lastHigh.value && highs[candidate]>highs[lastHigh.idx]
++      && val[i]<val[candidate]);
++    // Cada candidato se evalua una sola vez, en el cierre siguiente.
++    if(bull) bullish.push({idx:candidate,prevIdx:lastLow.idx,confirmedIdx:i});
++    if(bear) bearish.push({idx:candidate,prevIdx:lastHigh.idx,confirmedIdx:i});
++    if(highAt.has(i)) lastHigh=highAt.get(i);
++    if(lowAt.has(i)) lastLow=lowAt.get(i);
++  }
++  return {bullish,bearish};
++}
+--- a/regression.test.mjs
++++ b/regression.test.mjs
+@@ -14,7 +14,7 @@
+ 
+ test('bootstrap initializes absent types and suppresses historical events',()=>{
+  const state={};assert.deepEqual(processEvents(state,'BTCUSD','1h',[event(now-1000)],now),[]);
+- assert.equal(Object.keys(state).length,4);
++ assert.equal(Object.keys(state).length,6);
+  assert.equal(processEvents(state,'BTCUSD','1h',[event(now+1000,'div_bear')],now+2000).length,1);
+ });
+ test('expired and future events suppressed without discarding valid backlog',()=>{
+@@ -158,3 +158,48 @@
+  const mondayClose=Date.parse('2026-09-14T20:00:00Z');
+  assert.equal(processEvents(state,'AAPL','1d',[event(mondayClose,'div_bear')],mondayClose+60000).length,1);
+ });
++
++
++test('turn prealert waits for exactly one closed reversal bar',async()=>{
++ const {findTurnDivergences}=await import('./indicators.mjs');
++ const val=[0,-1,-2,-3,-4,-10,-4,-3,-2,-1,0,4,3,2,1,0,-2,-1];
++ const lows=val.map(()=>10);lows[5]=8;lows[16]=7;const highs=lows.map(v=>v+2);
++ assert.deepEqual(findTurnDivergences(val.slice(0,-1),highs.slice(0,-1),lows.slice(0,-1)).bullish,[]);
++ assert.deepEqual(findTurnDivergences(val,highs,lows).bullish,[{idx:16,prevIdx:5,confirmedIdx:17}]);
++ assert.equal(findPivots(val,5,5).lows.some(p=>p.idx===16),false);
++});
++test('continued decline and flat momentum do not trigger a reversal prealert',async()=>{
++ const {findTurnDivergences}=await import('./indicators.mjs');
++ for(const next of [-2,-1]) {
++  const val=[0,-2,-5,-2,0,1,0,-1,next];const lows=[10,9,8,9,10,11,9,7,6];
++  assert.deepEqual(findTurnDivergences(val,lows.map(v=>v+2),lows,{pivotLen:2,divRangeMin:3}).bullish,[]);
++ }
++});
++test('bearish prealert mirrors bullish rule and requires price divergence',async()=>{
++ const {findTurnDivergences}=await import('./indicators.mjs');
++ const val=[0,2,5,2,0,-1,0,1,0];const highs=[10,11,12,11,10,9,11,13,12];
++ const options={pivotLen:2,divRangeMin:3};
++ assert.deepEqual(findTurnDivergences(val,highs,highs.map(v=>v-2),options).bearish,[{idx:7,prevIdx:2,confirmedIdx:8}]);
++ highs[7]=12;
++ assert.deepEqual(findTurnDivergences(val,highs,highs.map(v=>v-2),options).bearish,[]);
++});
++test('turn prealert does not repeat a candidate and has no future dependence',async()=>{
++ const {findTurnDivergences}=await import('./indicators.mjs');
++ const val=[0,-2,-5,-2,0,1,0,-1,0,1,2,1];
++ const lows=[10,9,8,9,10,11,9,7,8,9,10,9];const highs=lows.map(v=>v+2);
++ const p={pivotLen:2,divRangeMin:3,divRangeMax:60};
++ const full=findTurnDivergences(val,highs,lows,p).bullish;
++ assert.deepEqual(full,[{idx:7,prevIdx:2,confirmedIdx:8}]);
++ for(let n=1;n<=val.length;n++) assert.deepEqual(findTurnDivergences(val.slice(0,n),highs.slice(0,n),lows.slice(0,n),p).bullish,full.filter(e=>e.confirmedIdx<n));
++});
++test('prealert message explicitly distinguishes one-bar turn from five-bar confirmation',()=>{
++ const text=composeMessage('BTCUSD','1h',{text:'PRE Bull',barTime:now-7200000,confirmedTime:now-60000,confirmedIdx:50,preliminary:true},true,now);
++ assert.match(text,/Giro confirmado \(1 vela\)/);assert.match(text,/Todavía no es/);assert.doesNotMatch(text,/Confirmada 5 velas/);
++});
++test('Pine paste file uses closed-bar turn rule and grouped close alerts',()=>{
++ const source=fs.readFileSync(new URL('./tradingview/alertbot.txt',import.meta.url),'utf8');
++ assert.ok(source.startsWith('//@version=6\nindicator('));
++ assert.ok(!source.includes('```'));assert.match(source,/earlyBullStart = barstate.isconfirmed/);
++ assert.match(source,/val > val\[1\]/);assert.match(source,/alert.freq_once_per_bar_close/);assert.doesNotMatch(source,/alert.freq_all/);
++ assert.equal(source,fs.readFileSync(new URL('./tradingview/alertbot.pine',import.meta.url),'utf8'));
++});
+--- a/scan.mjs
++++ b/scan.mjs
+@@ -1,11 +1,11 @@
+ import fs from 'node:fs';
+ import { pathToFileURL } from 'node:url';
+-import { rsiWilder, crossEvents, computeSqueezeMomentum, findPivots, findDivergences } from './indicators.mjs';
++import { rsiWilder, crossEvents, computeSqueezeMomentum, findPivots, findDivergences, findTurnDivergences } from './indicators.mjs';
+ import { fetchKrakenKlines, fetchTwelveDataSeries } from './data-sources.mjs';
+ import { latestStockClose } from './market-calendar.mjs';
+ import { sendTelegram } from './telegram.mjs';
+ import { CRYPTO_SYMBOLS, STOCK_SYMBOLS, TIMEFRAMES, SIGNALS, INDICATOR, TF_MS, HISTORY,
+-  SETTLEMENT_MS, maxAlertDelayMs } from './config.mjs';
++  SETTLEMENT_MS, maxAlertDelayMs, DIVERGENCE_MODE } from './config.mjs';
+ 
+ const STATE_PATH = new URL('./state.json', import.meta.url);
+ export function loadState(path = STATE_PATH) {
+@@ -40,8 +40,13 @@
+   const { val } = computeSqueezeMomentum(high,low,close,p.sqz);
+   const pivots = findPivots(val,p.pivotLen,p.pivotLen);
+   const { bullish,bearish } = findDivergences(pivots,{highPrices:high,lowPrices:low},p);
+-  for (const d of bullish) events.push({signal:'div_bull',idx:d.idx,confirmedIdx:d.idx+p.pivotLen,text:'📈 Divergencia ALCISTA de Momentum'});
+-  for (const d of bearish) events.push({signal:'div_bear',idx:d.idx,confirmedIdx:d.idx+p.pivotLen,text:'📉 Divergencia BAJISTA de Momentum'});
++  if (DIVERGENCE_MODE !== 'turn') for (const d of bullish) events.push({signal:'div_bull',idx:d.idx,confirmedIdx:d.idx+p.pivotLen,text:'📈 Divergencia ALCISTA de Momentum'});
++  if (DIVERGENCE_MODE !== 'turn') for (const d of bearish) events.push({signal:'div_bear',idx:d.idx,confirmedIdx:d.idx+p.pivotLen,text:'📉 Divergencia BAJISTA de Momentum'});
++  if (DIVERGENCE_MODE !== 'confirmed') {
++    const early=findTurnDivergences(val,high,low,p);
++    for(const d of early.bullish) events.push({signal:'pre_bull',idx:d.idx,confirmedIdx:d.confirmedIdx,preliminary:true,text:'🔎 PRE Bull — giro alcista de Momentum confirmado por 1 vela cerrada. Preaviso.'});
++    for(const d of early.bearish) events.push({signal:'pre_bear',idx:d.idx,confirmedIdx:d.confirmedIdx,preliminary:true,text:'🔎 PRE Bear — giro bajista de Momentum confirmado por 1 vela cerrada. Preaviso.'});
++  }
+   return events.map(e=>({...e,barTime:openTime[e.idx],confirmedTime:closeTime[e.confirmedIdx ?? e.idx]}))
+     .sort((a,b)=>a.confirmedTime-b.confirmedTime);
+ }
+@@ -69,9 +74,10 @@
+   const interval={ '1h':'60', '4h':'240', '1d':'D' }[tf];
+   const lines=[ev.text,`<b>${symbol}</b> · ${tf} · ${isCrypto?'Kraken':'Twelve Data, sesión regular'}`,
+     `🕒 ${ev.confirmedIdx==null?'Vela':'Pivot'}: ${formatDate(ev.barTime)} (ART)`,
+-    `✅ Confirmación: ${formatDate(ev.confirmedTime)} (ART)`,
++    `✅ ${ev.preliminary?'Giro confirmado (1 vela)':'Confirmación'}: ${formatDate(ev.confirmedTime)} (ART)`,
+     `📬 Detectada: ${formatDate(now)} (ART)`];
+-  if (ev.confirmedIdx!=null) lines.push(`Confirmada ${INDICATOR.pivotLen} velas después del pivot.`);
++  if (ev.preliminary) lines.push('Preaviso tras 1 vela de giro. Todavía no es la divergencia confirmada de 5 velas; puede fallar.');
++  if (ev.confirmedIdx!=null && !ev.preliminary) lines.push(`Confirmada ${INDICATOR.pivotLen} velas después del pivot.`);
+   const delay=Math.floor((now-ev.confirmedTime)/60000);
+   if (delay>=15) lines.push(`⏱ Recibida ${delay} min después del cierre de confirmación.`);
+   lines.push(`https://www.tradingview.com/chart/?symbol=${encodeURIComponent(tvSymbol)}&interval=${interval}`);
+--- a/tradingview/alertbot.pine
++++ b/tradingview/alertbot.pine
+@@ -1,5 +1,5 @@
+-//@version=5
+-indicator("SQZMOM + RSI Signal (precio) + Momentum Div (panel) v5 confirmado", overlay=false, max_lines_count=300, max_labels_count=300)
++//@version=6
++indicator("SQZMOM + RSI Signal (precio) + Momentum Div (panel) v6 preaviso con giro de 1 vela", overlay=false, max_lines_count=300, max_labels_count=300)
+ 
+ //==============================================================================
+ // GRUPOS DE CONFIGURACIÓN
+@@ -74,6 +74,8 @@
+ divRangeMin = input.int(5, "Mínimo de Barras entre Pivotes", minval=1, group=GRP_DIV)
+ divRangeMax = input.int(60, "Máximo de Barras entre Pivotes", minval=1, group=GRP_DIV)
+ 
++showConfirmed = input.bool(false, "Mostrar divergencias confirmadas", group=GRP_DIV)
++
+ momHigh = ta.pivothigh(val, pivotLen, pivotLen)
+ momLow  = ta.pivotlow(val, pivotLen, pivotLen)
+ 
+@@ -87,13 +89,30 @@
+ momBearDiv = false
+ momBullDiv = false
+ 
++// Extremo candidato en la vela ANTERIOR, con cinco barras a izquierda.
++// La vela actual debe cerrar con giro estricto de momentum: una barra a derecha.
++// La referencia sigue siendo el ultimo pivot confirmado con pivotLen barras a derecha.
++previousHigh = ta.highest(val[2], pivotLen)
++previousLow = ta.lowest(val[2], pivotLen)
++candidateBar = bar_index - 1
++ready = not na(val[pivotLen + 1]) and not na(val[1])
++earlyBearStart = barstate.isconfirmed and ready and not na(lastHighBar) and val[1] >= previousHigh and val[1] < lastHigh and high[1] > lastHighPrice and candidateBar - lastHighBar >= divRangeMin and candidateBar - lastHighBar <= divRangeMax and val < val[1]
++earlyBullStart = barstate.isconfirmed and ready and not na(lastLowBar) and val[1] <= previousLow and val[1] > lastLow and low[1] < lastLowPrice and candidateBar - lastLowBar >= divRangeMin and candidateBar - lastLowBar <= divRangeMax and val > val[1]
++// Linea hasta el extremo; etiqueta en la vela donde se detecto el giro.
++if showDivs and earlyBearStart
++    line.new(lastHighBar, lastHigh, candidateBar, val[1], color=color.orange, style=line.style_dashed)
++    label.new(bar_index, val, "PRE Bear\nGiro 1 vela", style=label.style_label_down, color=color.orange, textcolor=color.white, size=size.tiny)
++if showDivs and earlyBullStart
++    line.new(lastLowBar, lastLow, candidateBar, val[1], color=color.aqua, style=line.style_dashed)
++    label.new(bar_index, val, "PRE Bull\nGiro 1 vela", style=label.style_label_up, color=color.aqua, textcolor=color.black, size=size.tiny)
++
+ if barstate.isconfirmed and not na(momHigh)
+     barsSinceHigh = (bar_index - pivotLen) - lastHighBar
+     priceHigh     = high[pivotLen]
+ 
+     if not na(lastHigh) and momHigh < lastHigh and priceHigh > lastHighPrice and barsSinceHigh >= divRangeMin and barsSinceHigh <= divRangeMax
+         momBearDiv := true
+-        if showDivs
++        if showDivs and showConfirmed
+             line.new(lastHighBar, lastHigh, bar_index - pivotLen, momHigh, width=2, color=color.red)
+             label.new(bar_index - pivotLen, momHigh, "Bear Div", style=label.style_label_down, color=color.red, textcolor=color.white, size=size.tiny)
+ 
+@@ -107,7 +126,7 @@
+ 
+     if not na(lastLow) and momLow > lastLow and priceLow < lastLowPrice and barsSinceLow >= divRangeMin and barsSinceLow <= divRangeMax
+         momBullDiv := true
+-        if showDivs
++        if showDivs and showConfirmed
+             line.new(lastLowBar, lastLow, bar_index - pivotLen, momLow, width=2, color=color.lime)
+             label.new(bar_index - pivotLen, momLow, "Bull Div", style=label.style_label_up, color=color.lime, textcolor=color.white, size=size.tiny)
+ 
+@@ -118,28 +137,31 @@
+ //==============================================================================
+ // ALERTAS (STATIC & DYNAMIC)
+ //==============================================================================
+-// Los filtros visuales no activan/desactivan las alertas.
+-// Una sola llamada incluye todas las señales simultáneas.
+-alertRsi = input.bool(true, "Alertar RSI", group="Alertas")
+-alertDiv = input.bool(true, "Alertar divergencias", group="Alertas")
++// Todos los avisos se evalúan al cierre; un solo aviso por candidato.
++alertRsi = input.bool(true, "Alertar RSI al cierre", group="Alertas")
++alertEarly = input.bool(true, "Alertar preaviso con giro de 1 vela", group="Alertas")
++alertConfirmed = input.bool(false, "Alertar tambien divergencias confirmadas (5 velas)", group="Alertas")
+ string signals = ""
+-if buySignal and alertRsi
+-    signals += "BUY RSI\n"
+-if sellSignal and alertRsi
+-    signals += "SELL RSI\n"
+-if momBullDiv and alertDiv
+-    signals += "Divergencia alcista (pivot " + str.tostring(pivotLen) + " velas atrás)\n"
+-if momBearDiv and alertDiv
+-    signals += "Divergencia bajista (pivot " + str.tostring(pivotLen) + " velas atrás)\n"
++if alertEarly and earlyBullStart
++    signals += "PRE Bull: giro alcista confirmado por 1 vela. Preaviso, puede fallar.\n"
++if alertEarly and earlyBearStart
++    signals += "PRE Bear: giro bajista confirmado por 1 vela. Preaviso, puede fallar.\n"
++if alertRsi and buySignal
++    signals += "BUY RSI confirmado al cierre.\n"
++if alertRsi and sellSignal
++    signals += "SELL RSI confirmado al cierre.\n"
++if alertConfirmed and momBullDiv
++    signals += "Divergencia alcista CONFIRMADA.\n"
++if alertConfirmed and momBearDiv
++    signals += "Divergencia bajista CONFIRMADA.\n"
+ if barstate.isconfirmed and str.length(signals) > 0
+-    alert(syminfo.tickerid + " · " + timeframe.period + "\n" + signals + "Cierre confirmado: " + str.format_time(time_close, "yyyy-MM-dd HH:mm", "America/Argentina/Buenos_Aires") + " ART", alert.freq_once_per_bar_close)
++    alert(syminfo.tickerid + " / " + timeframe.period + "\n" + signals, alert.freq_once_per_bar_close)
+ 
+-// Las marcas de confirmación aparecen en la vela donde se conoce la divergencia.
+-plotshape(showDivs and momBullDiv, title="Confirmación Bull Div", style=shape.triangleup, location=location.bottom, color=color.lime, size=size.tiny, text="CONF")
+-plotshape(showDivs and momBearDiv, title="Confirmación Bear Div", style=shape.triangledown, location=location.top, color=color.red, size=size.tiny, text="CONF")
+-
+-// Alertconditions tradicionales
+-alertcondition(buySignal and alertRsi, title="BUY (RSI)", message="RSI cruza hacia arriba el nivel de sobreventa")
+-alertcondition(sellSignal and alertRsi, title="SELL (RSI)", message="RSI cruza hacia abajo el nivel de sobrecompra")
+-alertcondition(momBullDiv and alertDiv, title="Divergencia Alcista (Momentum)", message="Posible divergencia alcista en Momentum")
+-alertcondition(momBearDiv and alertDiv, title="Divergencia Bajista (Momentum)", message="Posible divergencia bajista en Momentum")
++plotshape(showDivs and showConfirmed and momBullDiv, title="Confirmacion Bull", style=shape.triangleup, location=location.bottom, color=color.lime, size=size.tiny, text="CONF")
++plotshape(showDivs and showConfirmed and momBearDiv, title="Confirmacion Bear", style=shape.triangledown, location=location.top, color=color.red, size=size.tiny, text="CONF")
++alertcondition(alertEarly and earlyBullStart, title="PRE Bull giro 1 vela", message="Preaviso alcista: giro de momentum confirmado por una vela cerrada. Puede fallar.")
++alertcondition(alertEarly and earlyBearStart, title="PRE Bear giro 1 vela", message="Preaviso bajista: giro de momentum confirmado por una vela cerrada. Puede fallar.")
++alertcondition(alertRsi and buySignal, title="BUY RSI", message="BUY RSI confirmado al cierre")
++alertcondition(alertRsi and sellSignal, title="SELL RSI", message="SELL RSI confirmado al cierre")
++alertcondition(alertConfirmed and momBullDiv, title="Bull confirmada", message="Divergencia alcista confirmada")
++alertcondition(alertConfirmed and momBearDiv, title="Bear confirmada", message="Divergencia bajista confirmada")
+--- a/tradingview/alertbot.txt
++++ b/tradingview/alertbot.txt
+@@ -0,0 +1,167 @@
++//@version=6
++indicator("SQZMOM + RSI Signal (precio) + Momentum Div (panel) v6 preaviso con giro de 1 vela", overlay=false, max_lines_count=300, max_labels_count=300)
++
++//==============================================================================
++// GRUPOS DE CONFIGURACIÓN
++//==============================================================================
++GRP_RSI   = "Configuración RSI"
++GRP_SQZ   = "Configuración Squeeze Momentum"
++GRP_DIV   = "Divergencia de Momentum"
++GRP_VIS   = "Filtros Visuales"
++
++//------------------------------------------------------------------------------
++// RSI
++//------------------------------------------------------------------------------
++showRsiSignals = input.bool(true, "Mostrar Señales RSI en Precio", group=GRP_RSI)
++rsiLen         = input.int(14, "Período RSI", minval=1, group=GRP_RSI)
++buyLevel       = input.int(30, "Nivel Sobreventa (BUY)", minval=1, maxval=50, group=GRP_RSI)
++sellLevel      = input.int(70, "Nivel Sobrecompra (SELL)", minval=50, maxval=99, group=GRP_RSI)
++
++rsi = ta.rsi(close, rsiLen)
++
++buyCross = ta.crossover(rsi, buyLevel)
++buySignal = barstate.isconfirmed and buyCross
++sellCross = ta.crossunder(rsi, sellLevel)
++sellSignal = barstate.isconfirmed and sellCross
++
++//------------------------------------------------------------------------------
++// SQZMOM
++//------------------------------------------------------------------------------
++length    = input.int(20, "BB Length", minval=1, group=GRP_SQZ)
++mult      = input.float(2.0, "BB Mult", minval=0.1, group=GRP_SQZ)
++lengthKC  = input.int(20, "KC Length", minval=1, group=GRP_SQZ)
++multKC    = input.float(1.5, "KC Mult", minval=0.1, group=GRP_SQZ)
++
++basis   = ta.sma(close, length)
++dev     = mult * ta.stdev(close, length)
++upperBB = basis + dev
++lowerBB = basis - dev
++
++ma      = ta.sma(close, lengthKC)
++rangema = ta.sma(ta.tr, lengthKC)
++upperKC = ma + rangema * multKC
++lowerKC = ma - rangema * multKC
++
++sqzOn  = lowerBB > lowerKC and upperBB < upperKC
++sqzOff = lowerBB < lowerKC and upperBB > upperKC
++
++val = ta.linreg(close - math.avg(math.avg(ta.highest(high, lengthKC), ta.lowest(low, lengthKC)), ta.sma(close, lengthKC)), lengthKC, 0)
++
++histColor = val > 0 ? (val > val[1] ? color.lime : color.green) : (val < val[1] ? color.red : color.maroon)
++plot(val, title="Histograma Momentum", style=plot.style_histogram, linewidth=4, color=histColor)
++
++// Puntos Squeeze
++sqzColor = sqzOn ? color.gray : sqzOff ? color.blue : color.black
++plot(0, title="Punto Squeeze", style=plot.style_cross, linewidth=2, color=sqzColor)
++hline(0, color=color.new(color.white, 50), linestyle=hline.style_dotted)
++
++//------------------------------------------------------------------------------
++// PLOTSHAPE DE PRECIO (FORCE OVERLAY)
++//------------------------------------------------------------------------------
++plotshape(showRsiSignals and buySignal, title="BUY Signal", style=shape.triangleup, 
++          location=location.belowbar, color=color.green, size=size.small, 
++          text="BUY", textcolor=color.white, force_overlay=true)
++
++plotshape(showRsiSignals and sellSignal, title="SELL Signal", style=shape.triangledown, 
++          location=location.abovebar, color=color.red, size=size.small, 
++          text="SELL", textcolor=color.white, force_overlay=true)
++
++//------------------------------------------------------------------------------
++// DIVERGENCIAS DE MOMENTUM
++//------------------------------------------------------------------------------
++showDivs    = input.bool(true, "Dibujar Divergencias", group=GRP_DIV)
++pivotLen    = input.int(5, "Pivot Length", minval=1, group=GRP_DIV, tooltip="Barras a izquierda/derecha para confirmar pivote")
++divRangeMin = input.int(5, "Mínimo de Barras entre Pivotes", minval=1, group=GRP_DIV)
++divRangeMax = input.int(60, "Máximo de Barras entre Pivotes", minval=1, group=GRP_DIV)
++
++showConfirmed = input.bool(false, "Mostrar divergencias confirmadas", group=GRP_DIV)
++
++momHigh = ta.pivothigh(val, pivotLen, pivotLen)
++momLow  = ta.pivotlow(val, pivotLen, pivotLen)
++
++var float lastHigh      = na
++var float lastLow       = na
++var float lastHighPrice = na
++var float lastLowPrice  = na
++var int   lastHighBar   = na
++var int   lastLowBar    = na
++
++momBearDiv = false
++momBullDiv = false
++
++// Extremo candidato en la vela ANTERIOR, con cinco barras a izquierda.
++// La vela actual debe cerrar con giro estricto de momentum: una barra a derecha.
++// La referencia sigue siendo el ultimo pivot confirmado con pivotLen barras a derecha.
++previousHigh = ta.highest(val[2], pivotLen)
++previousLow = ta.lowest(val[2], pivotLen)
++candidateBar = bar_index - 1
++ready = not na(val[pivotLen + 1]) and not na(val[1])
++earlyBearStart = barstate.isconfirmed and ready and not na(lastHighBar) and val[1] >= previousHigh and val[1] < lastHigh and high[1] > lastHighPrice and candidateBar - lastHighBar >= divRangeMin and candidateBar - lastHighBar <= divRangeMax and val < val[1]
++earlyBullStart = barstate.isconfirmed and ready and not na(lastLowBar) and val[1] <= previousLow and val[1] > lastLow and low[1] < lastLowPrice and candidateBar - lastLowBar >= divRangeMin and candidateBar - lastLowBar <= divRangeMax and val > val[1]
++// Linea hasta el extremo; etiqueta en la vela donde se detecto el giro.
++if showDivs and earlyBearStart
++    line.new(lastHighBar, lastHigh, candidateBar, val[1], color=color.orange, style=line.style_dashed)
++    label.new(bar_index, val, "PRE Bear\nGiro 1 vela", style=label.style_label_down, color=color.orange, textcolor=color.white, size=size.tiny)
++if showDivs and earlyBullStart
++    line.new(lastLowBar, lastLow, candidateBar, val[1], color=color.aqua, style=line.style_dashed)
++    label.new(bar_index, val, "PRE Bull\nGiro 1 vela", style=label.style_label_up, color=color.aqua, textcolor=color.black, size=size.tiny)
++
++if barstate.isconfirmed and not na(momHigh)
++    barsSinceHigh = (bar_index - pivotLen) - lastHighBar
++    priceHigh     = high[pivotLen]
++
++    if not na(lastHigh) and momHigh < lastHigh and priceHigh > lastHighPrice and barsSinceHigh >= divRangeMin and barsSinceHigh <= divRangeMax
++        momBearDiv := true
++        if showDivs and showConfirmed
++            line.new(lastHighBar, lastHigh, bar_index - pivotLen, momHigh, width=2, color=color.red)
++            label.new(bar_index - pivotLen, momHigh, "Bear Div", style=label.style_label_down, color=color.red, textcolor=color.white, size=size.tiny)
++
++    lastHigh      := momHigh
++    lastHighPrice := priceHigh
++    lastHighBar   := bar_index - pivotLen
++
++if barstate.isconfirmed and not na(momLow)
++    barsSinceLow = (bar_index - pivotLen) - lastLowBar
++    priceLow     = low[pivotLen]
++
++    if not na(lastLow) and momLow > lastLow and priceLow < lastLowPrice and barsSinceLow >= divRangeMin and barsSinceLow <= divRangeMax
++        momBullDiv := true
++        if showDivs and showConfirmed
++            line.new(lastLowBar, lastLow, bar_index - pivotLen, momLow, width=2, color=color.lime)
++            label.new(bar_index - pivotLen, momLow, "Bull Div", style=label.style_label_up, color=color.lime, textcolor=color.white, size=size.tiny)
++
++    lastLow      := momLow
++    lastLowPrice := priceLow
++    lastLowBar   := bar_index - pivotLen
++
++//==============================================================================
++// ALERTAS (STATIC & DYNAMIC)
++//==============================================================================
++// Todos los avisos se evalúan al cierre; un solo aviso por candidato.
++alertRsi = input.bool(true, "Alertar RSI al cierre", group="Alertas")
++alertEarly = input.bool(true, "Alertar preaviso con giro de 1 vela", group="Alertas")
++alertConfirmed = input.bool(false, "Alertar tambien divergencias confirmadas (5 velas)", group="Alertas")
++string signals = ""
++if alertEarly and earlyBullStart
++    signals += "PRE Bull: giro alcista confirmado por 1 vela. Preaviso, puede fallar.\n"
++if alertEarly and earlyBearStart
++    signals += "PRE Bear: giro bajista confirmado por 1 vela. Preaviso, puede fallar.\n"
++if alertRsi and buySignal
++    signals += "BUY RSI confirmado al cierre.\n"
++if alertRsi and sellSignal
++    signals += "SELL RSI confirmado al cierre.\n"
++if alertConfirmed and momBullDiv
++    signals += "Divergencia alcista CONFIRMADA.\n"
++if alertConfirmed and momBearDiv
++    signals += "Divergencia bajista CONFIRMADA.\n"
++if barstate.isconfirmed and str.length(signals) > 0
++    alert(syminfo.tickerid + " / " + timeframe.period + "\n" + signals, alert.freq_once_per_bar_close)
++
++plotshape(showDivs and showConfirmed and momBullDiv, title="Confirmacion Bull", style=shape.triangleup, location=location.bottom, color=color.lime, size=size.tiny, text="CONF")
++plotshape(showDivs and showConfirmed and momBearDiv, title="Confirmacion Bear", style=shape.triangledown, location=location.top, color=color.red, size=size.tiny, text="CONF")
++alertcondition(alertEarly and earlyBullStart, title="PRE Bull giro 1 vela", message="Preaviso alcista: giro de momentum confirmado por una vela cerrada. Puede fallar.")
++alertcondition(alertEarly and earlyBearStart, title="PRE Bear giro 1 vela", message="Preaviso bajista: giro de momentum confirmado por una vela cerrada. Puede fallar.")
++alertcondition(alertRsi and buySignal, title="BUY RSI", message="BUY RSI confirmado al cierre")
++alertcondition(alertRsi and sellSignal, title="SELL RSI", message="SELL RSI confirmado al cierre")
++alertcondition(alertConfirmed and momBullDiv, title="Bull confirmada", message="Divergencia alcista confirmada")
++alertcondition(alertConfirmed and momBearDiv, title="Bear confirmada", message="Divergencia bajista confirmada")
+--- a/tradingview/confirmed.pine
++++ b/tradingview/confirmed.pine
+@@ -0,0 +1,145 @@
++//@version=5
++indicator("SQZMOM + RSI Signal (precio) + Momentum Div (panel) v5 confirmado", overlay=false, max_lines_count=300, max_labels_count=300)
++
++//==============================================================================
++// GRUPOS DE CONFIGURACIÓN
++//==============================================================================
++GRP_RSI   = "Configuración RSI"
++GRP_SQZ   = "Configuración Squeeze Momentum"
++GRP_DIV   = "Divergencia de Momentum"
++GRP_VIS   = "Filtros Visuales"
++
++//------------------------------------------------------------------------------
++// RSI
++//------------------------------------------------------------------------------
++showRsiSignals = input.bool(true, "Mostrar Señales RSI en Precio", group=GRP_RSI)
++rsiLen         = input.int(14, "Período RSI", minval=1, group=GRP_RSI)
++buyLevel       = input.int(30, "Nivel Sobreventa (BUY)", minval=1, maxval=50, group=GRP_RSI)
++sellLevel      = input.int(70, "Nivel Sobrecompra (SELL)", minval=50, maxval=99, group=GRP_RSI)
++
++rsi = ta.rsi(close, rsiLen)
++
++buyCross = ta.crossover(rsi, buyLevel)
++buySignal = barstate.isconfirmed and buyCross
++sellCross = ta.crossunder(rsi, sellLevel)
++sellSignal = barstate.isconfirmed and sellCross
++
++//------------------------------------------------------------------------------
++// SQZMOM
++//------------------------------------------------------------------------------
++length    = input.int(20, "BB Length", minval=1, group=GRP_SQZ)
++mult      = input.float(2.0, "BB Mult", minval=0.1, group=GRP_SQZ)
++lengthKC  = input.int(20, "KC Length", minval=1, group=GRP_SQZ)
++multKC    = input.float(1.5, "KC Mult", minval=0.1, group=GRP_SQZ)
++
++basis   = ta.sma(close, length)
++dev     = mult * ta.stdev(close, length)
++upperBB = basis + dev
++lowerBB = basis - dev
++
++ma      = ta.sma(close, lengthKC)
++rangema = ta.sma(ta.tr, lengthKC)
++upperKC = ma + rangema * multKC
++lowerKC = ma - rangema * multKC
++
++sqzOn  = lowerBB > lowerKC and upperBB < upperKC
++sqzOff = lowerBB < lowerKC and upperBB > upperKC
++
++val = ta.linreg(close - math.avg(math.avg(ta.highest(high, lengthKC), ta.lowest(low, lengthKC)), ta.sma(close, lengthKC)), lengthKC, 0)
++
++histColor = val > 0 ? (val > val[1] ? color.lime : color.green) : (val < val[1] ? color.red : color.maroon)
++plot(val, title="Histograma Momentum", style=plot.style_histogram, linewidth=4, color=histColor)
++
++// Puntos Squeeze
++sqzColor = sqzOn ? color.gray : sqzOff ? color.blue : color.black
++plot(0, title="Punto Squeeze", style=plot.style_cross, linewidth=2, color=sqzColor)
++hline(0, color=color.new(color.white, 50), linestyle=hline.style_dotted)
++
++//------------------------------------------------------------------------------
++// PLOTSHAPE DE PRECIO (FORCE OVERLAY)
++//------------------------------------------------------------------------------
++plotshape(showRsiSignals and buySignal, title="BUY Signal", style=shape.triangleup, 
++          location=location.belowbar, color=color.green, size=size.small, 
++          text="BUY", textcolor=color.white, force_overlay=true)
++
++plotshape(showRsiSignals and sellSignal, title="SELL Signal", style=shape.triangledown, 
++          location=location.abovebar, color=color.red, size=size.small, 
++          text="SELL", textcolor=color.white, force_overlay=true)
++
++//------------------------------------------------------------------------------
++// DIVERGENCIAS DE MOMENTUM
++//------------------------------------------------------------------------------
++showDivs    = input.bool(true, "Dibujar Divergencias", group=GRP_DIV)
++pivotLen    = input.int(5, "Pivot Length", minval=1, group=GRP_DIV, tooltip="Barras a izquierda/derecha para confirmar pivote")
++divRangeMin = input.int(5, "Mínimo de Barras entre Pivotes", minval=1, group=GRP_DIV)
++divRangeMax = input.int(60, "Máximo de Barras entre Pivotes", minval=1, group=GRP_DIV)
++
++momHigh = ta.pivothigh(val, pivotLen, pivotLen)
++momLow  = ta.pivotlow(val, pivotLen, pivotLen)
++
++var float lastHigh      = na
++var float lastLow       = na
++var float lastHighPrice = na
++var float lastLowPrice  = na
++var int   lastHighBar   = na
++var int   lastLowBar    = na
++
++momBearDiv = false
++momBullDiv = false
++
++if barstate.isconfirmed and not na(momHigh)
++    barsSinceHigh = (bar_index - pivotLen) - lastHighBar
++    priceHigh     = high[pivotLen]
++
++    if not na(lastHigh) and momHigh < lastHigh and priceHigh > lastHighPrice and barsSinceHigh >= divRangeMin and barsSinceHigh <= divRangeMax
++        momBearDiv := true
++        if showDivs
++            line.new(lastHighBar, lastHigh, bar_index - pivotLen, momHigh, width=2, color=color.red)
++            label.new(bar_index - pivotLen, momHigh, "Bear Div", style=label.style_label_down, color=color.red, textcolor=color.white, size=size.tiny)
++
++    lastHigh      := momHigh
++    lastHighPrice := priceHigh
++    lastHighBar   := bar_index - pivotLen
++
++if barstate.isconfirmed and not na(momLow)
++    barsSinceLow = (bar_index - pivotLen) - lastLowBar
++    priceLow     = low[pivotLen]
++
++    if not na(lastLow) and momLow > lastLow and priceLow < lastLowPrice and barsSinceLow >= divRangeMin and barsSinceLow <= divRangeMax
++        momBullDiv := true
++        if showDivs
++            line.new(lastLowBar, lastLow, bar_index - pivotLen, momLow, width=2, color=color.lime)
++            label.new(bar_index - pivotLen, momLow, "Bull Div", style=label.style_label_up, color=color.lime, textcolor=color.white, size=size.tiny)
++
++    lastLow      := momLow
++    lastLowPrice := priceLow
++    lastLowBar   := bar_index - pivotLen
++
++//==============================================================================
++// ALERTAS (STATIC & DYNAMIC)
++//==============================================================================
++// Los filtros visuales no activan/desactivan las alertas.
++// Una sola llamada incluye todas las señales simultáneas.
++alertRsi = input.bool(true, "Alertar RSI", group="Alertas")
++alertDiv = input.bool(true, "Alertar divergencias", group="Alertas")
++string signals = ""
++if buySignal and alertRsi
++    signals += "BUY RSI\n"
++if sellSignal and alertRsi
++    signals += "SELL RSI\n"
++if momBullDiv and alertDiv
++    signals += "Divergencia alcista (pivot " + str.tostring(pivotLen) + " velas atrás)\n"
++if momBearDiv and alertDiv
++    signals += "Divergencia bajista (pivot " + str.tostring(pivotLen) + " velas atrás)\n"
++if barstate.isconfirmed and str.length(signals) > 0
++    alert(syminfo.tickerid + " · " + timeframe.period + "\n" + signals + "Cierre confirmado: " + str.format_time(time_close, "yyyy-MM-dd HH:mm", "America/Argentina/Buenos_Aires") + " ART", alert.freq_once_per_bar_close)
++
++// Las marcas de confirmación aparecen en la vela donde se conoce la divergencia.
++plotshape(showDivs and momBullDiv, title="Confirmación Bull Div", style=shape.triangleup, location=location.bottom, color=color.lime, size=size.tiny, text="CONF")
++plotshape(showDivs and momBearDiv, title="Confirmación Bear Div", style=shape.triangledown, location=location.top, color=color.red, size=size.tiny, text="CONF")
++
++// Alertconditions tradicionales
++alertcondition(buySignal and alertRsi, title="BUY (RSI)", message="RSI cruza hacia arriba el nivel de sobreventa")
++alertcondition(sellSignal and alertRsi, title="SELL (RSI)", message="RSI cruza hacia abajo el nivel de sobrecompra")
++alertcondition(momBullDiv and alertDiv, title="Divergencia Alcista (Momentum)", message="Posible divergencia alcista en Momentum")
++alertcondition(momBearDiv and alertDiv, title="Divergencia Bajista (Momentum)", message="Posible divergencia bajista en Momentum")

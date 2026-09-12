@@ -1,9 +1,8 @@
 // indicators.mjs
 // Reimplementa en JS puro las fórmulas del indicador Pine Script v5:
 // "SQZMOM + RSI Signal (precio) + Momentum Div (panel) v4"
-// Todas las funciones trabajan sobre arrays completos (no streaming),
-// así que no hace falta replicar el "lag" de confirmación de TradingView:
-// directamente buscamos los pivots ya confirmados en el historial.
+// Los pivots se devuelven en su índice original, pero solo existen cuando
+// ya están presentes las barras de confirmación a su derecha.
 
 export function sma(values, length) {
   const out = new Array(values.length).fill(null);
@@ -162,7 +161,8 @@ export function computeSqueezeMomentum(
 }
 
 // Pivots tipo ta.pivothigh/pivotlow(val, left, right): un punto es pivot
-// si es el máximo/mínimo estricto dentro de la ventana [i-left, i+right].
+// elige el extremo más reciente si hay empates: permite igualdad a izquierda,
+// exige desigualdad estricta a derecha.
 export function findPivots(val, left, right) {
   const highs = [];
   const lows = [];
@@ -172,10 +172,10 @@ export function findPivots(val, left, right) {
     if (win.some((v) => v == null)) continue;
     const center = val[i];
 
-    const isHigh = win.every((v, winIdx) => winIdx === left || center > v);
+    const isHigh = win.every((v, winIdx) => winIdx <= left ? center >= v : center > v);
     if (isHigh) highs.push({ idx: i, value: center });
 
-    const isLow = win.every((v, winIdx) => winIdx === left || center < v);
+    const isLow = win.every((v, winIdx) => winIdx <= left ? center <= v : center < v);
     if (isLow) lows.push({ idx: i, value: center });
   }
   return { highs, lows };
@@ -220,4 +220,34 @@ export function findDivergences(
   }
 
   return { bullish, bearish };
+}
+
+// Preaviso: extremo con pivotLen barras a izquierda y UNA barra a derecha.
+// El array debe contener solo velas cerradas. confirmedIdx indica cuando
+// se conoce el giro, no cuando se formo el extremo candidato.
+export function findTurnDivergences(val, highs, lows, {pivotLen=5,divRangeMin=5,divRangeMax=60}={}) {
+  const pivots=findPivots(val,pivotLen,pivotLen);
+  const highAt=new Map(pivots.highs.map(p=>[p.idx+pivotLen,p]));
+  const lowAt=new Map(pivots.lows.map(p=>[p.idx+pivotLen,p]));
+  const bullish=[],bearish=[];
+  let lastHigh,lastLow;
+  for(let i=0;i<val.length;i++) {
+    const candidate=i-1;
+    const left=val.slice(Math.max(0,candidate-pivotLen),Math.max(0,candidate));
+    const ready=candidate>=pivotLen && left.length===pivotLen
+      && left.every(Number.isFinite) && Number.isFinite(val[candidate]) && Number.isFinite(val[i]);
+    const inRange=p=>p && candidate-p.idx>=divRangeMin && candidate-p.idx<=divRangeMax;
+    const bull=Boolean(ready && inRange(lastLow) && val[candidate]<=Math.min(...left)
+      && val[candidate]>lastLow.value && lows[candidate]<lows[lastLow.idx]
+      && val[i]>val[candidate]);
+    const bear=Boolean(ready && inRange(lastHigh) && val[candidate]>=Math.max(...left)
+      && val[candidate]<lastHigh.value && highs[candidate]>highs[lastHigh.idx]
+      && val[i]<val[candidate]);
+    // Cada candidato se evalua una sola vez, en el cierre siguiente.
+    if(bull) bullish.push({idx:candidate,prevIdx:lastLow.idx,confirmedIdx:i});
+    if(bear) bearish.push({idx:candidate,prevIdx:lastHigh.idx,confirmedIdx:i});
+    if(highAt.has(i)) lastHigh=highAt.get(i);
+    if(lowAt.has(i)) lastLow=lowAt.get(i);
+  }
+  return {bullish,bearish};
 }

@@ -2,12 +2,13 @@
   "name": "alertbot",
   "version": "1.0.0",
   "type": "module",
-  "description": "Scanner de señales RSI + Squeeze Momentum (crypto y stocks) con alertas por Telegram",
+  "description": "Scanner de se\u00f1ales RSI + Squeeze Momentum (crypto y stocks) con alertas por Telegram",
   "scripts": {
     "scan": "node scan.mjs",
-    "test": "node test-indicators.mjs"
+    "test": "node --test regression.test.mjs",
+    "dry-run": "node scan.mjs --dry-run"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   }
 }
