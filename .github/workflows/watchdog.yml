@@ -2,7 +2,7 @@ name: Watchdog
 
 on:
   schedule:
-    - cron: "0 */2 * * *"
+    - cron: "14,44 * * * *"
   workflow_dispatch: {}
 
 jobs:

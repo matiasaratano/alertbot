@@ -1,0 +1,11 @@
+.DS_Store
+._*
+.env
+.env.*
+!.env.example
+scan.lock
+state.json.tmp
+node_modules/
+__pycache__/
+*.zip
+.calendar-venv/
