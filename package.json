@@ -5,7 +5,7 @@
   "description": "Scanner de se\u00f1ales RSI + Squeeze Momentum (crypto y stocks) con alertas por Telegram",
   "scripts": {
     "scan": "node scan.mjs",
-    "test": "node --test regression.test.mjs",
+    "test": "node --test regression.test.mjs priority.test.mjs",
     "dry-run": "node scan.mjs --dry-run"
   },
   "engines": {

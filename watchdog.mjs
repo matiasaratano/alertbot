@@ -1,41 +1,17 @@
-import fs from "fs";
-import { sendTelegram } from "./telegram.mjs";
+import fs from 'node:fs';
+import { pathToFileURL } from 'node:url';
 
-const THRESHOLD_MINUTES = 30; // margen sobre el cron de 5 minutos
-
-const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
-const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
-
-function loadHeartbeat() {
-  try {
-    return JSON.parse(fs.readFileSync(new URL("./heartbeat.json", import.meta.url), "utf8"));
-  } catch {
-    return null;
-  }
+// Diagnóstico manual, sin mensajes a Telegram ni necesidad de credenciales.
+export function heartbeatStatus(heartbeat, now = Date.now()) {
+  const last = Date.parse(heartbeat?.lastRun);
+  if (!Number.isFinite(last) || last > now || now - last > 30 * 60000) return { healthy: false, reason: 'Heartbeat ausente, inválido o de más de 30 minutos.' };
+  if (heartbeat.healthy === false) return { healthy: false, reason: 'La última corrida registró errores; revisar Actions.' };
+  return { healthy: true, reason: 'Heartbeat reciente.' };
 }
-
-async function main() {
-  if (!TELEGRAM_TOKEN || !TELEGRAM_CHAT_ID) {
-    throw new Error("Faltan TELEGRAM_TOKEN / TELEGRAM_CHAT_ID en las variables de entorno");
-  }
-
-  const heartbeat = loadHeartbeat();
-  const lastRun = heartbeat?.lastRun ? new Date(heartbeat.lastRun).getTime() : null;
-  const minutesSince = lastRun ? (Date.now() - lastRun) / 60000 : null;
-
-  if (!lastRun || minutesSince > THRESHOLD_MINUTES || heartbeat?.healthy === false) {
-    const detail = heartbeat?.healthy === false ? "La última corrida tuvo errores. Revisá los logs." : lastRun
-      ? `Última corrida hace ${Math.round(minutesSince)} minutos.`
-      : "Nunca se registró una corrida (heartbeat.json ausente).";
-    const msg = `⚠️ <b>Alertbot: posible corte</b>\n${detail}\nRevisá la pestaña Actions del repo — puede que el cron esté trabado o deshabilitado.`;
-    await sendTelegram(TELEGRAM_TOKEN, TELEGRAM_CHAT_ID, msg);
-    console.log("Alerta de watchdog enviada:", detail);
-  } else {
-    console.log(`Todo OK. Última corrida hace ${minutesSince.toFixed(0)} minutos.`);
-  }
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  let heartbeat;
+  try { heartbeat = JSON.parse(fs.readFileSync(new URL('./heartbeat.json', import.meta.url), 'utf8')); } catch {}
+  const status = heartbeatStatus(heartbeat);
+  console.log(status.reason);
+  process.exitCode = status.healthy ? 0 : 1;
 }
-
-main().catch((err) => {
-  console.error("Fallo el watchdog:", err);
-  process.exit(1);
-});

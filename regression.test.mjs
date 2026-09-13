@@ -14,7 +14,7 @@ const event=(time,signal='rsi_buy')=>({signal,confirmedTime:time});
 
 test('bootstrap initializes absent types and suppresses historical events',()=>{
  const state={};assert.deepEqual(processEvents(state,'BTCUSD','1h',[event(now-1000)],now),[]);
- assert.equal(Object.keys(state).length,6);
+ assert.equal(Object.keys(state).length,8);
  assert.equal(processEvents(state,'BTCUSD','1h',[event(now+1000,'div_bear')],now+2000).length,1);
 });
 test('expired and future events suppressed without discarding valid backlog',()=>{
@@ -103,13 +103,6 @@ function fixture(lastClose=Date.parse('2026-09-11T20:00:00Z')) {
  return {close,high:close.map(v=>v+1),low:close.map(v=>v-1),
   closeTime:close.map((_,i)=>lastClose-(499-i)*3600000),openTime:close.map((_,i)=>lastClose-(500-i)*3600000)};
 }
-test('signal confirmation timestamp comes from actual candle close, including short bars',()=>{
- const candles=fixture();const events=analyzeSymbol('BTCUSD','1h',candles);
- assert.ok(events.length>0);
- for(const ev of events) assert.equal(ev.confirmedTime,candles.closeTime[ev.confirmedIdx ?? ev.idx]);
- const ev=events.at(-1);candles.closeTime[ev.confirmedIdx ?? ev.idx]-=1800000;
- assert.equal(analyzeSymbol('BTCUSD','1h',candles).find(e=>e.idx===ev.idx && e.signal===ev.signal).confirmedTime,ev.confirmedTime-1800000);
-});
 test('scanner skips successful close but retries stale provider on next tick',async()=>{
  const state={};let requests=0;
  const options={state,persist:()=>{},send:async()=>{},stockKey:'test',cryptoSymbols:[],stockSymbols:['AAPL'],timeframes:['1d'],clock:()=>now,
@@ -132,11 +125,6 @@ test('state corruption fails instead of resetting and atomic writes round-trip',
  fs.writeFileSync(file,'[]');assert.throws(()=>loadState(file));fs.writeFileSync(file,'broken');assert.throws(()=>loadState(file));
  }finally{fs.rmSync(dir,{recursive:true,force:true});}
 });
-test('message identifies exchange, confirmation time and retrospective pivot',()=>{
- const text=composeMessage('BTCUSD','4h',{text:'divergencia',barTime:now-72000000,confirmedTime:now-120000,confirmedIdx:10},true,now);
- assert.match(text,/Kraken/);assert.match(text,/Confirmación/);assert.match(text,/5 velas/);assert.match(text,/KRAKEN%3ABTCUSD/);
-});
-
 test('Telegram obeys explicit retry_after and paces group messages',async()=>{
  const {createTelegramSender}=await import('./telegram.mjs');let time=0,calls=0;const sleeps=[];
  const send=createTelegramSender({clock:()=>time,sleep:async ms=>{sleeps.push(ms);time+=ms;},fetchImpl:async()=>{
@@ -191,15 +179,4 @@ test('turn prealert does not repeat a candidate and has no future dependence',as
  const full=findTurnDivergences(val,highs,lows,p).bullish;
  assert.deepEqual(full,[{idx:7,prevIdx:2,confirmedIdx:8}]);
  for(let n=1;n<=val.length;n++) assert.deepEqual(findTurnDivergences(val.slice(0,n),highs.slice(0,n),lows.slice(0,n),p).bullish,full.filter(e=>e.confirmedIdx<n));
-});
-test('prealert message explicitly distinguishes one-bar turn from five-bar confirmation',()=>{
- const text=composeMessage('BTCUSD','1h',{text:'PRE Bull',barTime:now-7200000,confirmedTime:now-60000,confirmedIdx:50,preliminary:true},true,now);
- assert.match(text,/Giro confirmado \(1 vela\)/);assert.match(text,/Todavía no es/);assert.doesNotMatch(text,/Confirmada 5 velas/);
-});
-test('Pine paste file uses closed-bar turn rule and grouped close alerts',()=>{
- const source=fs.readFileSync(new URL('./tradingview/alertbot.txt',import.meta.url),'utf8');
- assert.ok(source.startsWith('//@version=6\nindicator('));
- assert.ok(!source.includes('```'));assert.match(source,/earlyBullStart = barstate.isconfirmed/);
- assert.match(source,/val > val\[1\]/);assert.match(source,/alert.freq_once_per_bar_close/);assert.doesNotMatch(source,/alert.freq_all/);
- assert.equal(source,fs.readFileSync(new URL('./tradingview/alertbot.pine',import.meta.url),'utf8'));
 });

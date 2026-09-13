@@ -1,0 +1,29 @@
+[
+  {
+    "tf": "1h",
+    "from": "2026-08-25T19:00:00.000Z",
+    "to": "2026-09-13T13:00:00.000Z",
+    "oldIndividualAlerts": 18,
+    "pineConfluences": 5,
+    "priorityBeforeNotificationCooldown": 0,
+    "priorityMessages": 0
+  },
+  {
+    "tf": "4h",
+    "from": "2026-06-30T12:00:00.000Z",
+    "to": "2026-09-13T12:00:00.000Z",
+    "oldIndividualAlerts": 23,
+    "pineConfluences": 8,
+    "priorityBeforeNotificationCooldown": 6,
+    "priorityMessages": 6
+  },
+  {
+    "tf": "1d",
+    "from": "2025-06-20T00:00:00.000Z",
+    "to": "2026-09-13T00:00:00.000Z",
+    "oldIndividualAlerts": 18,
+    "pineConfluences": 5,
+    "priorityBeforeNotificationCooldown": 12,
+    "priorityMessages": 9
+  }
+]

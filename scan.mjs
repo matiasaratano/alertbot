@@ -1,11 +1,11 @@
 import fs from 'node:fs';
 import { pathToFileURL } from 'node:url';
-import { rsiWilder, crossEvents, computeSqueezeMomentum, findPivots, findDivergences, findTurnDivergences } from './indicators.mjs';
+import { buildConfluence, selectImportant } from './confluence.mjs';
 import { fetchKrakenKlines, fetchTwelveDataSeries } from './data-sources.mjs';
 import { latestStockClose } from './market-calendar.mjs';
 import { sendTelegram } from './telegram.mjs';
 import { CRYPTO_SYMBOLS, STOCK_SYMBOLS, TIMEFRAMES, SIGNALS, INDICATOR, TF_MS, HISTORY,
-  SETTLEMENT_MS, maxAlertDelayMs, DIVERGENCE_MODE } from './config.mjs';
+  SETTLEMENT_MS, maxAlertDelayMs, ALERT_POLICY, NOTIFICATION_COOLDOWN_BARS } from './config.mjs';
 
 const STATE_PATH = new URL('./state.json', import.meta.url);
 export function loadState(path = STATE_PATH) {
@@ -26,60 +26,63 @@ export function saveState(state, path = STATE_PATH) {
 export function analyzeSymbol(symbol, tf, candles) {
   const { openTime, closeTime, high, low, close } = candles;
   if (!TF_MS[tf]) throw new Error(`Temporalidad no soportada: ${tf}`);
-  if (close.length < 90) throw new Error(`${symbol} ${tf}: historial insuficiente`);
+  if (close.length < 250) throw new Error(`${symbol} ${tf}: historial insuficiente para EMA200`);
   if (!closeTime || [openTime,closeTime,high,low].some(a=>a.length!==close.length)) throw new Error('Serie desalineada o sin cierres');
-  const p = INDICATOR;
-  const events = [];
-  const rsi = rsiWilder(close,p.rsiLen);
-  const { crossover:buy } = crossEvents(rsi,p.buyLevel);
-  const { crossunder:sell } = crossEvents(rsi,p.sellLevel);
-  for (let i=p.rsiLen+1;i<close.length;i++) {
-    if (buy[i]) events.push({signal:'rsi_buy',idx:i,text:`🟢 BUY (RSI) — cruzó por encima de ${p.buyLevel}. RSI=${rsi[i].toFixed(1)}`});
-    if (sell[i]) events.push({signal:'rsi_sell',idx:i,text:`🔴 SELL (RSI) — cruzó por debajo de ${p.sellLevel}. RSI=${rsi[i].toFixed(1)}`});
-  }
-  const { val } = computeSqueezeMomentum(high,low,close,p.sqz);
-  const pivots = findPivots(val,p.pivotLen,p.pivotLen);
-  const { bullish,bearish } = findDivergences(pivots,{highPrices:high,lowPrices:low},p);
-  if (DIVERGENCE_MODE !== 'turn') for (const d of bullish) events.push({signal:'div_bull',idx:d.idx,confirmedIdx:d.idx+p.pivotLen,text:'📈 Divergencia ALCISTA de Momentum'});
-  if (DIVERGENCE_MODE !== 'turn') for (const d of bearish) events.push({signal:'div_bear',idx:d.idx,confirmedIdx:d.idx+p.pivotLen,text:'📉 Divergencia BAJISTA de Momentum'});
-  if (DIVERGENCE_MODE !== 'confirmed') {
-    const early=findTurnDivergences(val,high,low,p);
-    for(const d of early.bullish) events.push({signal:'pre_bull',idx:d.idx,confirmedIdx:d.confirmedIdx,preliminary:true,text:'🔎 PRE Bull — giro alcista de Momentum confirmado por 1 vela cerrada. Preaviso.'});
-    for(const d of early.bearish) events.push({signal:'pre_bear',idx:d.idx,confirmedIdx:d.confirmedIdx,preliminary:true,text:'🔎 PRE Bear — giro bajista de Momentum confirmado por 1 vela cerrada. Preaviso.'});
-  }
-  return events.map(e=>({...e,barTime:openTime[e.idx],confirmedTime:closeTime[e.confirmedIdx ?? e.idx]}))
-    .sort((a,b)=>a.confirmedTime-b.confirmedTime);
+  const selected = selectImportant(buildConfluence(candles, INDICATOR), tf, ALERT_POLICY);
+  return selected.filter(e => e.idx >= 249).map(e => ({
+    ...e, signal: `important_${e.side}`, barTime: openTime[e.idx], confirmedTime: closeTime[e.idx],
+    cooldownCutoff: closeTime[e.idx - NOTIFICATION_COOLDOWN_BARS],
+    evidence: e.evidence.map(c => ({ ...c, confirmedTime: closeTime[c.idx] })),
+    pivots: e.pivots.map(d => ({ ...d, pivotTime: openTime[d.pivotIdx] })),
+  })).sort((a,b) => a.confirmedTime - b.confirmedTime);
 }
 export function processEvents(state,symbol,tf,events,now=Date.now()) {
   const delay=maxAlertDelayMs();
   const prefix=`v2:${symbol}:${tf}:`;
   const known=new Set(SIGNALS.filter(signal=>Number.isFinite(state[prefix+signal])));
   for (const signal of SIGNALS) if (!known.has(signal)) state[prefix+signal]=now;
-  return events.filter(ev=>known.has(ev.signal) && Number.isFinite(ev.confirmedTime)
+  const candidates = events.filter(ev=>known.has(ev.signal) && Number.isFinite(ev.confirmedTime)
     && ev.confirmedTime>state[prefix+ev.signal] && ev.confirmedTime<=now && now-ev.confirmedTime<=delay)
     .sort((a,b)=>a.confirmedTime-b.confirmedTime);
+  const lastNotification = {};
+  return candidates.filter(ev => {
+    if (!ev.signal.startsWith('important_')) return true;
+    const key = `_lastImportant:${symbol}:${tf}:${ev.signal}`;
+    const last = lastNotification[key] ?? state[key] ?? -Infinity;
+    if (last >= ev.cooldownCutoff) return false;
+    lastNotification[key] = ev.confirmedTime;
+    return true;
+  });
 }
 export async function deliverEvents(state,symbol,tf,events,send,persist) {
   for (const ev of events) {
     await send(ev);
     state[`v2:${symbol}:${tf}:${ev.signal}`]=ev.confirmedTime;
+    if (ev.signal.startsWith('important_')) state[`_lastImportant:${symbol}:${tf}:${ev.signal}`] = ev.confirmedTime;
     persist(state);
   }
 }
 const formatDate = ms=>new Date(ms).toLocaleString('es-AR',{
   timeZone:'America/Argentina/Buenos_Aires',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',
 });
-export function composeMessage(symbol,tf,ev,isCrypto,now=Date.now()) {
-  const tvSymbol=isCrypto ? `KRAKEN:${symbol}` : `NASDAQ:${symbol}`;
-  const interval={ '1h':'60', '4h':'240', '1d':'D' }[tf];
-  const lines=[ev.text,`<b>${symbol}</b> · ${tf} · ${isCrypto?'Kraken':'Twelve Data, sesión regular'}`,
-    `🕒 ${ev.confirmedIdx==null?'Vela':'Pivot'}: ${formatDate(ev.barTime)} (ART)`,
-    `✅ ${ev.preliminary?'Giro confirmado (1 vela)':'Confirmación'}: ${formatDate(ev.confirmedTime)} (ART)`,
-    `📬 Detectada: ${formatDate(now)} (ART)`];
-  if (ev.preliminary) lines.push('Preaviso tras 1 vela de giro. Todavía no es la divergencia confirmada de 5 velas; puede fallar.');
-  if (ev.confirmedIdx!=null && !ev.preliminary) lines.push(`Confirmada ${INDICATOR.pivotLen} velas después del pivot.`);
-  const delay=Math.floor((now-ev.confirmedTime)/60000);
-  if (delay>=15) lines.push(`⏱ Recibida ${delay} min después del cierre de confirmación.`);
+const escapeHtml = text => String(text).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
+export function composeMessage(symbol, tf, ev, isCrypto, now = Date.now()) {
+  const tvSymbol = isCrypto ? `KRAKEN:${symbol}` : `NASDAQ:${symbol}`;
+  const interval = { '1h':'60', '4h':'240', '1d':'D' }[tf];
+  const direction = ev.side === 'bull' ? 'ALCISTA' : 'BAJISTA';
+  const lines = [
+    `${tf === '1d' ? '⭐ DIARIO' : '🔎 REVISAR'} · ${direction}`,
+    `<b>${escapeHtml(symbol)}</b> · ${tf} · ${isCrypto ? 'Kraken USD' : 'Twelve Data, sesión regular'}`,
+    ev.confluenceSignal ? `Confluencia Pine: ${ev.score}/4 condiciones recientes` : 'Divergencia confirmada de marco diario',
+  ];
+  for (const c of ev.evidence) lines.push(`• ${c.label}: ${c.barsAgo === 0 ? 'esta vela' : `hace ${c.barsAgo} vela(s)`}`);
+  if (ev.evidence.some(c => c.name.endsWith('_div'))) lines.push(`Los pivots se confirman ${INDICATOR.pivotLen} velas después del extremo.`);
+  const sideEma = ev.price > ev.ema ? 'encima' : ev.price < ev.ema ? 'debajo' : 'sobre';
+  lines.push(`Precio: ${ev.price.toFixed(2)} USD · RSI: ${ev.rsi.toFixed(1)} · ${sideEma} de EMA${INDICATOR.emaLength}`);
+  if (!ev.confluenceSignal && !ev.trendOk) lines.push('Divergencia contra la tendencia EMA; no es BUY/SELL por confluencia.');
+  lines.push(`✅ Cierre: ${formatDate(ev.confirmedTime)} (ART)`);
+  const delay = Math.max(0, Math.floor((now - ev.confirmedTime) / 60000));
+  lines.push(`📬 Detectada ${delay} min después del cierre.`);
   lines.push(`https://www.tradingview.com/chart/?symbol=${encodeURIComponent(tvSymbol)}&interval=${interval}`);
   return lines.join('\n');
 }
