@@ -1,4 +1,7 @@
 {
-  "lastRun": "2026-09-12T22:25:32.209Z",
-  "alertsSent": 0
+  "lastRun": "2026-09-13T00:42:42.510Z",
+  "alertsSent": 0,
+  "checked": 12,
+  "healthy": true,
+  "errors": []
 }
