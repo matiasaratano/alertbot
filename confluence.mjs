@@ -90,7 +90,7 @@ export function buildConfluence(candles, p) {
       }
     }
   }
-  return scoreConfluence({ close, trend: ema(close, p.emaLength), bull, bear }, p).map(e => ({ ...e, rsi: rsi[e.idx], pivots: pivotDetails[e.side].get(e.idx) ?? [] }));
+  return scoreConfluence({ close, trend: ema(close, p.emaLength), bull, bear }, p).map(e => ({ ...e, rsi: rsi[e.idx], pivots: e.evidence.flatMap(c => (pivotDetails[e.side].get(c.idx) ?? []).filter(d => d.name === c.name)) }));
 }
 
 export function selectImportant(events, tf, policy) {

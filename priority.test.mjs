@@ -45,9 +45,10 @@ test('Telegram policy omits isolated triggers and restricts 1h more than 4h',()=
  data.bull.rsi_div[3]=true;
  assert.equal(selectImportant(scoreConfluence(data,INDICATOR),'1h',ALERT_POLICY).length,1);
 });
-test('daily standalone divergence can alert against EMA and is not labelled confluence',()=>{
+test('daily standalone divergences are silent and diagnostic messages explicitly exclude BUY/SELL',()=>{
  const data=setup();data.trend.fill(110);data.bull.mom_div[5]=true;
- const daily=selectImportant(scoreConfluence(data,INDICATOR),'1d',ALERT_POLICY);
+ assert.equal(selectImportant(scoreConfluence(data,INDICATOR),'1d',ALERT_POLICY).length,0);
+ const daily=scoreConfluence(data,INDICATOR);
  assert.equal(daily.length,1);assert.equal(daily[0].confluenceSignal,false);
  assert.equal(selectImportant(daily,'4h',ALERT_POLICY).length,0);
  const text=composeMessage('BTCUSD','1d',{...daily[0],rsi:38,confirmedTime:Date.now()},true);
@@ -75,7 +76,7 @@ function fixture(n=700) {
 test('pipeline emits important events with actual close timestamps and no individual messages',()=>{
  const candles=fixture(),events=analyzeSymbol('BTCUSD','1d',candles);
  assert.ok(events.length>0);
- for(const e of events){assert.match(e.signal,/^important_/);assert.equal(e.confirmedTime,candles.closeTime[e.idx]);}
+ for(const e of events){assert.match(e.signal,/^(important|early)_/);assert.equal(e.confirmedTime,candles.closeTime[e.idx]);}
  const ev=events.at(-1);candles.closeTime[ev.idx]-=1800000;
  assert.equal(analyzeSymbol('BTCUSD','1d',candles).find(e=>e.idx===ev.idx&&e.side===ev.side).confirmedTime,ev.confirmedTime-1800000);
 });
@@ -102,8 +103,11 @@ test('watchdog has no Telegram delivery path and no scheduled workflow',()=>{
  const workflow=fs.readFileSync(new URL('./.github/workflows/watchdog.yml',import.meta.url),'utf8');
  assert.doesNotMatch(workflow,/schedule:|cron:/);
 });
-test('selected Pine is preserved exactly, including confluence settings',()=>{
- const selected=fs.readFileSync(new URL('./tradingview/selected-confluence.pine',import.meta.url),'utf8');
- for(const name of ['alertbot.pine','alertbot.txt'])assert.equal(fs.readFileSync(new URL('./tradingview/'+name,import.meta.url),'utf8'),selected);
- assert.ok(selected.startsWith('//@version=6\n'));
+test('updated Pine has synchronized copies, keeps original separately and enables early views',()=>{
+ const pine=fs.readFileSync(new URL('./tradingview/alertbot.pine',import.meta.url),'utf8');
+ assert.equal(fs.readFileSync(new URL('./tradingview/alertbot.txt',import.meta.url),'utf8'),pine);
+ assert.ok(pine.startsWith('//@version=6\n'));
+ assert.match(pine,/EN FORMACIÓN/);
+ assert.match(pine,/float earlyHigh = lastMomHigh/);
+ assert.notEqual(pine,fs.readFileSync(new URL('./tradingview/selected-confluence.pine',import.meta.url),'utf8'));
 });

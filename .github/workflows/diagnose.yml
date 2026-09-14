@@ -1,0 +1,23 @@
+name: Diagnóstico de señales (sin Telegram)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Reconstruir NVDA diario con datos del proveedor
+        env:
+          TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+        run: node diagnose-signals.mjs NVDA
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nvda-signal-diagnostic
+          path: signal-diagnostic.json
+          retention-days: 14

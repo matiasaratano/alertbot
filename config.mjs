@@ -3,7 +3,7 @@ export const CRYPTO_SYMBOLS = ['BTCUSD', 'ETHUSD', 'SOLUSD', 'BNBUSD'];
 export const STOCK_SYMBOLS = ['AAPL', 'MSFT', 'NVDA', 'MELI', 'GOOGL', 'AMZN', 'META'];
 export const TIMEFRAMES = ['1h', '4h', '1d'];
 export const TF_MS = { '15m': 900000, '1h': 3600000, '4h': 14400000, '1d': 86400000 };
-export const SIGNALS = ['rsi_buy', 'rsi_sell', 'div_bull', 'div_bear', 'pre_bull', 'pre_bear', 'important_bull', 'important_bear'];
+export const SIGNALS = ['rsi_buy', 'rsi_sell', 'div_bull', 'div_bear', 'pre_bull', 'pre_bear', 'important_bull', 'important_bear', 'early_bull', 'early_bear'];
 export const INDICATOR = {
   rsiLen: 14, buyLevel: 30, sellLevel: 70,
   sqz: { length: 20, mult: 2, lengthKC: 20, multKC: 1.5 },
@@ -24,6 +24,8 @@ export function maxAlertDelayMs() {
 export const ALERT_POLICY = {
   '1h': { minimumScore: 3, requireDivergence: true, standaloneDivergences: false },
   '4h': { minimumScore: 2, requireDivergence: true, standaloneDivergences: false },
-  '1d': { minimumScore: 2, requireDivergence: false, standaloneDivergences: true },
+  '1d': { minimumScore: 2, requireDivergence: false, standaloneDivergences: false },
 };
 export const NOTIFICATION_COOLDOWN_BARS = 8;
+
+export const EARLY_TIMEFRAMES = ['4h', '1d'];

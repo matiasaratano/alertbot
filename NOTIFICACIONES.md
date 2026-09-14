@@ -1,47 +1,42 @@
-# Telegram: selección por prioridad
+# Avisos de Telegram y preaviso de momentum
 
-El bot usa la confluencia del Pine final aportado, con sus valores por defecto: RSI14 30/70; SQZMOM20; pivots5; rango5–60; ventana de coincidencia8; mínimo2; EMA200 activa; cooldown Pine8 (se permite otra señal cuando pasaron MÁS de8 barras).
+Actualización del 14/09/2026. El Pine para pegar es `tradingview/alertbot.txt` (Pine v6, título v7). `selected-confluence.pine` conserva el original anterior.
 
 ## Qué llega
 
-| Temporalidad | Requisito |
+| Marco | Notificaciones |
 | --- | --- |
-| 1h | BUY/SELL por confluencia del Pine, score mínimo3/4, incluyendo divergencia RSI o momentum confirmada en las últimas8 velas. |
-| 4h | BUY/SELL por confluencia del Pine, score mínimo2/4, incluyendo divergencia confirmada en las últimas8 velas. |
-| Diario | BUY/SELL por confluencia del Pine, o una divergencia RSI/momentum recién confirmada. |
+| 1h | Confluencia BUY/SELL con al menos 3/4 familias, incluyendo divergencia confirmada reciente. Sin preavisos. |
+| 4h | Preaviso de momentum al primer giro cerrado; también confluencia BUY/SELL con 2/4 y divergencia confirmada reciente. |
+| Diario | Preaviso de momentum al primer giro cerrado; también confluencia BUY/SELL con 2/4. |
 
-No se mandan RSI, giros SQZ ni PRE individuales. Los switches visuales del Pine no modifican esta política del bot. Para cada símbolo, temporalidad y dirección, las coincidencias en una vela se agrupan. Se añade una pausa de8 velas entre notificaciones del mismo tipo; tras un aviso en la barra0, otro de igual dirección se admite desde la barra9. La dirección opuesta no queda bloqueada.
+Se eliminaron las divergencias confirmadas aisladas de Telegram. No se envían salidas RSI ni giros SQZ aislados. Watchdog sigue sin enviar Telegram.
 
-Esta pausa es adicional al cooldown del Pine: puede omitir intencionalmente alguna señal que sí ves en el gráfico. Una divergencia diaria aislada puede ir contra EMA200; el mensaje lo indica y no la presenta como BUY/SELL por confluencia.
+## Regla del preaviso
 
-## Qué significa el score
+Se compara un extremo candidato del histograma con su último pivote confirmado conocido antes del cierre actual. El candidato debe ser un extremo respecto de las cinco velas anteriores, estar separado 5–60 velas de la referencia y tener el mismo signo: máximos positivos para bajista, mínimos negativos para alcista. En bajista, el high del precio en el candidato supera al de la referencia, mientras el momentum es menor. En alcista, el low es menor y el momentum menos negativo. La siguiente vela debe cerrar con giro estricto del momentum.
 
-Son cuatro familias: salida de banda RSI, evento SQZMOM (giro o salida del squeeze), divergencia RSI, divergencia momentum. Cada familia suma a lo sumo un punto, aunque se repita dentro de la ventana. Las condiciones pueden tener hasta8 velas de antigüedad; el aviso muestra esa edad. Debe haber un evento nuevo para que el Pine genere BUY/SELL.
+No reduce los cinco lados del pivote confirmado ni modifica el score o EMA200 de las confluencias. El preaviso no exige filtro EMA; es una candidata, no BUY/SELL. Puede fallar y un movimiento rápido puede haber avanzado incluso antes de este aviso.
 
-3/4 no significa75% de probabilidad de éxito. Son condiciones correlacionadas y esta combinación nueva no fue validada por el estudio anterior. La selección busca reducir interrupciones, no garantiza mejores operaciones.
+Una alerta como máximo por extremo de referencia y dirección, con persistencia tras envío exitoso. Hay además una pausa de ocho velas por símbolo, marco y tipo/dirección de aviso: el siguiente se admite desde la novena. Por eso Telegram puede omitir un PRE visible en el gráfico. Si hay PRE y confluencia en la misma vela y dirección se agrupan como confluencia. Una confirmación de momentum ya preavisada se silencia si no hay otra familia nueva en esa vela; una confluencia con evidencia nueva puede avisar posteriormente.
 
-Las divergencias de este Pine se confirman cinco velas después del extremo. El bot respeta esa demora: ya no ejecuta el detector PRE de la versión anterior. Las fórmulas se reprodujeron y se probaron causalmente, pero no se ejecutó una comparación automática contra el motor de TradingView. Feed, historial o inputs distintos pueden producir diferencias. Se piden700 velas para reducir el error de inicialización de EMA200; no elimina toda diferencia en casos límite.
+En TradingView, la línea amarilla discontinua EN FORMACIÓN sigue al candidato en la última vela y puede desaparecer, incluso intravela. No dispara Telegram. PRE queda en la vela cerrada que detectó el primer giro. Su línea une los extremos anteriores. Confirmaciones a cinco velas siguen visibles. Los preavisos visuales y sus alertas se habilitan por defecto solamente en 4h y diario; las alertas individuales de confirmación quedan desactivadas por defecto.
 
-## Muestra de volumen BTC/USD Kraken
+## Discrepancia NVDA pendiente de contraste
 
-La comparación reconstruye avisos del código anterior (RSI+PRE) y del nuevo con la pausa de notificación, sin enviar mensajes. Los períodos difieren entre temporalidades por el límite de historia del proveedor; no comparar estos totales como tasas diarias.
+La captura muestra una confirmación alrededor del 03/09, mientras Telegram notificó una el 14/09. No se ha establecido la causa. No se dispone localmente del secreto Twelve Data ni de una exportación OHLC de TradingView para comparar los dos cálculos. No asumir que cambiar a preavisos corrige esa diferencia.
 
-| TF | Ventana UTC | Antes | Ahora |
-| --- | --- | ---: | ---: |
-| 1h | 25/08/2026 19:00 a13/09/2026 13:00 |18|0|
-| 4h | 30/06/2026 12:00 a13/09/2026 12:00 |23|6|
-| Diario | 20/06/2025 a13/09/2026 |18|9|
+Después de subir los cambios, ejecutar en GitHub Actions **Diagnóstico de señales (sin Telegram)**. Descargar el artefacto `nvda-signal-diagnostic`: contiene `signal-diagnostic.json` con las 700 velas de Twelve Data, parámetros, RSI y fechas/precios de los extremos. No envía mensajes ni modifica state.json. Una exportación del gráfico de TradingView con idéntico símbolo, marco, sesión y ajustes permite comparar los datos. Un diagnóstico posterior usa el historial que el proveedor entregue entonces; no recupera una instantánea antigua si fue revisada.
 
-En 1h el filtro es deliberadamente estricto. El detalle está en `priority-audit.json`; `audit-priority.mjs` permite repetir la comparación con velas nuevas. No mide aciertos, ganancias, latencia ni mensajes efectivamente enviados.
-
-## Avisos de inactividad
-
-El workflow watchdog dejó de tener cron y solo se puede ejecutar manualmente. `watchdog.mjs` no importa Telegram, no necesita token y solo escribe el diagnóstico en logs. El scanner mantiene heartbeat y errores en GitHub Actions. Esto no cambia las preferencias de notificaciones propias de tu cuenta de GitHub.
+Cada aviso nuevo muestra fechas ART de ambos extremos, fuente y cierre de detección. El scanner registra `SIGNAL_AUDIT` en los logs de Actions con los parámetros y el evento, sin credenciales. Las fuentes pueden diferir y las condiciones de confluencia pueden tener hasta ocho velas: la edad se muestra explícitamente. El score no es una probabilidad de acierto.
 
 ## Activación
 
-Los cambios están preparados en la carpeta local del repositorio. Se activan con commit y push a main. No modificar el bot, chat_id o token de Telegram. No hace falta cambiar el Pine que acabás de elegir: se conservó tal cual en `tradingview/selected-confluence.pine` y en los archivos para copiar.
+1. Commit y push de los cambios del repositorio.
+2. Pegar `tradingview/alertbot.txt` en el editor Pine, guardar y aplicar. Comprobar inputs por defecto: pivote5, rango5–60, RSI14 30/70, SQZMOM20, ventana8, mínimo2, EMA200 y cooldown8. El bot usa `config.mjs`; cambiar inputs del gráfico no lo reconfigura.
+3. Si se usan alertas propias de TradingView, recrearlas con el script actualizado. Telegram continúa siendo enviado por el scanner de GitHub: no necesita cambiar token ni chat_id.
+4. Ejecutar el diagnóstico manual de NVDA y revisar el artefacto.
 
-Si cambiaste los inputs respecto de sus valores por defecto, ajustar `INDICATOR` en config.mjs para que coincidan. `ALERT_POLICY` permite regular qué llega por cada temporalidad; `NOTIFICATION_COOLDOWN_BARS` controla la pausa de mensajes.
+Conservar state.json. En el primer arranque las nuevas claves early_bull/early_bear se inicializan sin enviar historial. Persisten las limitaciones de duplicados si Telegram recibió el mensaje pero se perdió su respuesta o no se consiguió persistir remotamente el estado.
 
-Conservar state.json. Las nuevas claves important_bull/important_bear se inicializan silenciosamente en el primer arranque, sin enviar historial. No se borran las claves anteriores. Las notificaciones y la pausa se guardan solo después de una respuesta exitosa de Telegram. Se mantiene la limitación de posibles duplicados ante respuesta perdida o fallo posterior de persistencia remota.
+Las pruebas automatizadas cubren lógica causal, deduplicación, errores de entrega, filtros y mensajes. No se compiló el Pine en el motor de TradingView ni se midió rentabilidad de esta nueva selección. `priority-audit.json` pertenece a la política anterior y no valida los preavisos actuales.

@@ -1,3 +1,5 @@
+> Actualización 14/09/2026: la política vigente, el nuevo Pine y la activación están en [NOTIFICACIONES.md](NOTIFICACIONES.md). Las descripciones de la revisión anterior que siguen no incluyen los nuevos preavisos; su auditoría de volumen no valida esta versión.
+
 # Revisión actual: confluencia y Telegram selectivo
 
 El Pine elegido cambió la lógica respecto del detector PRE anterior. Se agregaron las divergencias RSI sobre pivots de precio, eventos de giro/salida SQZ y la confluencia de cuatro familias en ventana8, con EMA200 y cooldown8 del Pine.

@@ -14,7 +14,7 @@ const event=(time,signal='rsi_buy')=>({signal,confirmedTime:time});
 
 test('bootstrap initializes absent types and suppresses historical events',()=>{
  const state={};assert.deepEqual(processEvents(state,'BTCUSD','1h',[event(now-1000)],now),[]);
- assert.equal(Object.keys(state).length,8);
+ assert.equal(Object.keys(state).length,10);
  assert.equal(processEvents(state,'BTCUSD','1h',[event(now+1000,'div_bear')],now+2000).length,1);
 });
 test('expired and future events suppressed without discarding valid backlog',()=>{

@@ -1,3 +1,5 @@
+> Actualización 14/09/2026: la política vigente, el nuevo Pine y la activación están en [NOTIFICACIONES.md](NOTIFICACIONES.md). Las descripciones de la revisión anterior que siguen no incluyen los nuevos preavisos; su auditoría de volumen no valida esta versión.
+
 # Alertbot — Telegram por prioridad y confluencia
 
 Scanner de BTCUSD, ETHUSD, SOLUSD y BNBUSD (Kraken), y acciones estadounidenses (Twelve Data). Temporalidades:1h,4h y diario. Reproduce las condiciones principales del Pine final `SQZMOM + RSI + Divergencias + Confluencia v6` y aplica una selección adicional de mensajes.

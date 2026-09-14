@@ -1,5 +1,5 @@
 //@version=6
-indicator("SQZMOM + RSI + Divergencias + Confluencia v6", overlay=false, max_lines_count=400, max_labels_count=400)
+indicator("SQZMOM + RSI + Divergencias + Confluencia + Preaviso v7", overlay=false, max_lines_count=400, max_labels_count=400)
 
 //==============================================================================
 // GRUPOS
@@ -76,8 +76,8 @@ bool   showRsiDivs       = input.bool(true, "Dibujar divergencias RSI en precio"
 int    pivotLen          = input.int(5, "Velas para confirmar el pivote", minval=1, maxval=20, group=GRP_DIV)
 int    divRangeMin       = input.int(5, "Mínimo de barras entre pivotes", minval=1, group=GRP_DIV)
 int    divRangeMax       = input.int(60, "Máximo de barras entre pivotes", minval=2, group=GRP_DIV)
-bool   showEarlyMomDivs  = input.bool(false, "Dibujar preaviso SQZMOM con giro de 1 vela", group=GRP_DIV,
-     tooltip="Desactivado por defecto para no superponer líneas tentativas con divergencias confirmadas.")
+bool   showEarlyMomDivs  = input.bool(true, "Dibujar preaviso SQZMOM con giro de 1 vela", group=GRP_DIV,
+     tooltip="Líneas discontinuas: candidatas que pueden desaparecer. PRE: primer giro al cierre en 4h y diario.")
 
 float pricePivotHigh = ta.pivothigh(high, pivotLen, pivotLen)
 float pricePivotLow  = ta.pivotlow(low, pivotLen, pivotLen)
@@ -117,6 +117,14 @@ bool momBearDiv = false
 bool momBullDiv = false
 bool rsiBearDiv = false
 bool rsiBullDiv = false
+
+// Referencias conocidas ANTES de este cierre, como en el scanner.
+float earlyHigh = lastMomHigh
+float earlyLow = lastMomLow
+float earlyHighPrice = lastMomHighPrice
+float earlyLowPrice = lastMomLowPrice
+int earlyHighBar = lastMomHighBar
+int earlyLowBar = lastMomLowBar
 
 if barstate.isconfirmed and momHighFound
     int barsSince = na(lastMomHighBar) ? na : currentPivotBar - lastMomHighBar
@@ -158,25 +166,54 @@ if barstate.isconfirmed and rsiLowFound
 // PREAVISO DE DIVERGENCIA SQZMOM (1 vela a la derecha)
 //==============================================================================
 float previousMomHigh = ta.highest(sqzMom[2], pivotLen)
-float previousMomLow  = ta.lowest(sqzMom[2], pivotLen)
+float previousMomLow = ta.lowest(sqzMom[2], pivotLen)
 int candidateBar = bar_index - 1
 bool earlyReady = not na(sqzMom[pivotLen + 1]) and not na(sqzMom[1])
-
-bool earlyBearDiv = barstate.isconfirmed and earlyReady and not na(lastMomHighBar) and
-     sqzMom[1] >= previousMomHigh and sqzMom[1] < lastMomHigh and high[1] > lastMomHighPrice and
-     candidateBar - lastMomHighBar >= divRangeMin and candidateBar - lastMomHighBar <= divRangeMax and sqzMom < sqzMom[1]
-
-bool earlyBullDiv = barstate.isconfirmed and earlyReady and not na(lastMomLowBar) and
-     sqzMom[1] <= previousMomLow and sqzMom[1] > lastMomLow and low[1] < lastMomLowPrice and
-     candidateBar - lastMomLowBar >= divRangeMin and candidateBar - lastMomLowBar <= divRangeMax and sqzMom > sqzMom[1]
-
+bool earlyTimeframe = timeframe.period == "240" or timeframe.period == "1D"
+var int lastEarlyBearReference = na
+var int lastEarlyBullReference = na
+bool earlyBearDiv = barstate.isconfirmed and earlyReady and not na(earlyHighBar) and
+     sqzMom[1] > 0 and earlyHigh > 0 and sqzMom[1] >= previousMomHigh and
+     sqzMom[1] < earlyHigh and high[1] > earlyHighPrice and
+     candidateBar - earlyHighBar >= divRangeMin and candidateBar - earlyHighBar <= divRangeMax and
+     sqzMom < sqzMom[1] and (na(lastEarlyBearReference) or lastEarlyBearReference != earlyHighBar)
+bool earlyBullDiv = barstate.isconfirmed and earlyReady and not na(earlyLowBar) and
+     sqzMom[1] < 0 and earlyLow < 0 and sqzMom[1] <= previousMomLow and
+     sqzMom[1] > earlyLow and low[1] < earlyLowPrice and
+     candidateBar - earlyLowBar >= divRangeMin and candidateBar - earlyLowBar <= divRangeMax and
+     sqzMom > sqzMom[1] and (na(lastEarlyBullReference) or lastEarlyBullReference != earlyLowBar)
+if earlyBearDiv
+    lastEarlyBearReference := earlyHighBar
+if earlyBullDiv
+    lastEarlyBullReference := earlyLowBar
+earlyBearDiv := earlyBearDiv and earlyTimeframe
+earlyBullDiv := earlyBullDiv and earlyTimeframe
 if showMomDivs and showEarlyMomDivs and earlyBearDiv
-    line.new(lastMomHighBar, lastMomHigh, candidateBar, sqzMom[1], color=color.orange, style=line.style_dashed)
+    line.new(earlyHighBar, earlyHigh, candidateBar, sqzMom[1], color=color.orange, style=line.style_dashed)
     label.new(bar_index, sqzMom, "PRE Bear\n1 vela", style=label.style_label_down, color=color.orange, textcolor=color.white, size=size.tiny)
-
 if showMomDivs and showEarlyMomDivs and earlyBullDiv
-    line.new(lastMomLowBar, lastMomLow, candidateBar, sqzMom[1], color=color.aqua, style=line.style_dashed)
+    line.new(earlyLowBar, earlyLow, candidateBar, sqzMom[1], color=color.aqua, style=line.style_dashed)
     label.new(bar_index, sqzMom, "PRE Bull\n1 vela", style=label.style_label_up, color=color.aqua, textcolor=color.black, size=size.tiny)
+
+// Vista tentativa del extremo actual. Se reemplaza, no deja señales históricas falsas.
+float formingHighLeft = ta.highest(sqzMom[1], pivotLen)
+float formingLowLeft = ta.lowest(sqzMom[1], pivotLen)
+bool formingBear = not na(lastMomHighBar) and sqzMom > 0 and lastMomHigh > 0 and
+     high > lastMomHighPrice and sqzMom < lastMomHigh and sqzMom >= formingHighLeft and
+     bar_index - lastMomHighBar >= divRangeMin and bar_index - lastMomHighBar <= divRangeMax and
+     (na(lastEarlyBearReference) or lastEarlyBearReference != lastMomHighBar)
+bool formingBull = not na(lastMomLowBar) and sqzMom < 0 and lastMomLow < 0 and
+     low < lastMomLowPrice and sqzMom > lastMomLow and sqzMom <= formingLowLeft and
+     bar_index - lastMomLowBar >= divRangeMin and bar_index - lastMomLowBar <= divRangeMax and
+     (na(lastEarlyBullReference) or lastEarlyBullReference != lastMomLowBar)
+var line formingLine = na
+var label formingLabel = na
+if barstate.islast
+    line.delete(formingLine)
+    label.delete(formingLabel)
+    if showEarlyMomDivs and showMomDivs and earlyTimeframe and (formingBear or formingBull)
+        formingLine := line.new(formingBear ? lastMomHighBar : lastMomLowBar, formingBear ? lastMomHigh : lastMomLow, bar_index, sqzMom, color=color.yellow, style=line.style_dashed)
+        formingLabel := label.new(bar_index, sqzMom, "EN FORMACIÓN\nPuede invalidarse", style=label.style_label_left, color=color.yellow, textcolor=color.black, size=size.tiny)
 
 //==============================================================================
 // CONFLUENCIA
@@ -270,8 +307,8 @@ plot(rsi, "RSI", display=display.data_window)
 // ALERTAS
 //==============================================================================
 bool alertIndividual = input.bool(false, "Alertar señales individuales", group=GRP_ALERT)
-bool alertDivs       = input.bool(true, "Alertar divergencias confirmadas", group=GRP_ALERT)
-bool alertEarly      = input.bool(false, "Alertar preavisos SQZMOM", group=GRP_ALERT)
+bool alertDivs       = input.bool(false, "Alertar divergencias confirmadas", group=GRP_ALERT)
+bool alertEarly      = input.bool(true, "Alertar preavisos SQZMOM", group=GRP_ALERT)
 bool alertConfluence = input.bool(true, "Alertar BUY/SELL por confluencia", group=GRP_ALERT)
 
 string signals = ""
