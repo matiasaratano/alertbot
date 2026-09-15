@@ -201,7 +201,7 @@ export function findDivergences(
     if (barGap < divRangeMin || barGap > divRangeMax) continue;
     const prevPrice = highPrices[prev.idx];
     const currPrice = highPrices[curr.idx];
-    if (curr.value < prev.value && currPrice > prevPrice) {
+    if (prev.value > 0 && curr.value > 0 && curr.value < prev.value && currPrice > prevPrice) {
       bearish.push({ idx: curr.idx, prevIdx: prev.idx });
     }
   }
@@ -214,7 +214,7 @@ export function findDivergences(
     if (barGap < divRangeMin || barGap > divRangeMax) continue;
     const prevPrice = lowPrices[prev.idx];
     const currPrice = lowPrices[curr.idx];
-    if (curr.value > prev.value && currPrice < prevPrice) {
+    if (prev.value < 0 && curr.value < 0 && curr.value > prev.value && currPrice < prevPrice) {
       bullish.push({ idx: curr.idx, prevIdx: prev.idx });
     }
   }

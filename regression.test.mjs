@@ -14,7 +14,7 @@ const event=(time,signal='rsi_buy')=>({signal,confirmedTime:time});
 
 test('bootstrap initializes absent types and suppresses historical events',()=>{
  const state={};assert.deepEqual(processEvents(state,'BTCUSD','1h',[event(now-1000)],now),[]);
- assert.equal(Object.keys(state).length,10);
+ assert.equal(Object.keys(state).length,12);
  assert.equal(processEvents(state,'BTCUSD','1h',[event(now+1000,'div_bear')],now+2000).length,1);
 });
 test('expired and future events suppressed without discarding valid backlog',()=>{
@@ -179,4 +179,17 @@ test('turn prealert does not repeat a candidate and has no future dependence',as
  const full=findTurnDivergences(val,highs,lows,p).bullish;
  assert.deepEqual(full,[{idx:7,prevIdx:2,confirmedIdx:8}]);
  for(let n=1;n<=val.length;n++) assert.deepEqual(findTurnDivergences(val.slice(0,n),highs.slice(0,n),lows.slice(0,n),p).bullish,full.filter(e=>e.confirmedIdx<n));
+});
+
+test('confirmed momentum requires two negative valleys or two positive peaks, excluding zero',()=>{
+ const detect=(side,a,b)=>{
+  const prices=Array(11).fill(100);prices[10]=side==='bullish'?90:110;
+  const pivots={highs:[],lows:[]};
+  pivots[side==='bullish'?'lows':'highs']=[{idx:5,value:a},{idx:10,value:b}];
+  return findDivergences(pivots,{highPrices:prices,lowPrices:prices})[side];
+ };
+ assert.equal(detect('bullish',-10,-5).length,1);
+ assert.equal(detect('bearish',10,5).length,1);
+ for(const [a,b] of [[-10,2],[1,2],[-10,0],[0,2]])assert.equal(detect('bullish',a,b).length,0);
+ for(const [a,b] of [[10,-2],[-1,-2],[10,0],[0,-2]])assert.equal(detect('bearish',a,b).length,0);
 });

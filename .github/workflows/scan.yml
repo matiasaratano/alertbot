@@ -36,6 +36,7 @@ jobs:
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_ALLOWED_USER_ID: ${{ secrets.TELEGRAM_ALLOWED_USER_ID }}
           TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
         run: node scan.mjs
 
@@ -44,7 +45,7 @@ jobs:
         run: |
           git config user.name "alertbot"
           git config user.email "alertbot@users.noreply.github.com"
-          for file in state.json heartbeat.json; do
+          for file in state.json heartbeat.json watch-state.enc; do
             if [ -f "$file" ]; then git add "$file"; fi
           done
           if git diff --staged --quiet; then

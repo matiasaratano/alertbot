@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import {fetchTwelveDataSeries} from './data-sources.mjs';
 import {buildConfluence, rsiPriceDivergences} from './confluence.mjs';
+import {buildSetups} from './setups.mjs';
 import {buildEarly} from './early.mjs';
 import {rsiWilder} from './indicators.mjs';
 import {INDICATOR,HISTORY} from './config.mjs';
@@ -18,6 +19,7 @@ const describe=e=>({...e,date:new Date(candles.closeTime[e.idx]).toISOString(),
 const output={symbol,source:'Twelve Data: regular, adjust=splits',parameters:INDICATOR,
  generatedAt:new Date().toISOString(),
  events:buildConfluence(candles,INDICATOR).slice(-30).map(describe),
+ opportunities:buildSetups(candles,INDICATOR).slice(-30).map(describe),
  early:buildEarly(candles,INDICATOR).slice(-20).map(describe),
  priceDivergences:rsiPriceDivergences(candles.high,candles.low,rsi,INDICATOR),candles};
 fs.writeFileSync('signal-diagnostic.json',JSON.stringify(output,null,2));

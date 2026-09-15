@@ -76,7 +76,7 @@ function fixture(n=700) {
 test('pipeline emits important events with actual close timestamps and no individual messages',()=>{
  const candles=fixture(),events=analyzeSymbol('BTCUSD','1d',candles);
  assert.ok(events.length>0);
- for(const e of events){assert.match(e.signal,/^(important|early)_/);assert.equal(e.confirmedTime,candles.closeTime[e.idx]);}
+ for(const e of events){assert.match(e.signal,/^(important|early|setup)_/);assert.equal(e.confirmedTime,candles.closeTime[e.idx]);}
  const ev=events.at(-1);candles.closeTime[ev.idx]-=1800000;
  assert.equal(analyzeSymbol('BTCUSD','1d',candles).find(e=>e.idx===ev.idx&&e.side===ev.side).confirmedTime,ev.confirmedTime-1800000);
 });

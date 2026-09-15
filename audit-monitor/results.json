@@ -1,0 +1,110 @@
+[
+  {
+    "symbol": "BTCUSD",
+    "tf": "15m",
+    "from": "2026-09-10T22:30:00.000Z",
+    "to": "2026-09-15T15:00:00.000Z",
+    "individualEvents": 71,
+    "opportunities": 20,
+    "long": {
+      "weak": 4,
+      "structure": 9,
+      "total": 13
+    },
+    "short": {
+      "weak": 2,
+      "structure": 10,
+      "total": 12
+    }
+  },
+  {
+    "symbol": "BTCUSD",
+    "tf": "1h",
+    "from": "2026-08-27T20:00:00.000Z",
+    "to": "2026-09-15T14:00:00.000Z",
+    "individualEvents": 70,
+    "opportunities": 18,
+    "long": {
+      "weak": 4,
+      "structure": 10,
+      "total": 14
+    },
+    "short": {
+      "weak": 3,
+      "structure": 9,
+      "total": 12
+    }
+  },
+  {
+    "symbol": "BTCUSD",
+    "tf": "4h",
+    "from": "2026-07-02T08:00:00.000Z",
+    "to": "2026-09-15T08:00:00.000Z",
+    "individualEvents": 72,
+    "opportunities": 23,
+    "long": {
+      "weak": 4,
+      "structure": 8,
+      "total": 12
+    },
+    "short": {
+      "weak": 1,
+      "structure": 10,
+      "total": 11
+    }
+  },
+  {
+    "symbol": "ETHUSD",
+    "tf": "15m",
+    "from": "2026-09-10T22:30:00.000Z",
+    "to": "2026-09-15T15:00:00.000Z",
+    "individualEvents": 65,
+    "opportunities": 16,
+    "long": {
+      "weak": 1,
+      "structure": 8,
+      "total": 9
+    },
+    "short": {
+      "weak": 2,
+      "structure": 10,
+      "total": 12
+    }
+  },
+  {
+    "symbol": "ETHUSD",
+    "tf": "1h",
+    "from": "2026-08-27T20:00:00.000Z",
+    "to": "2026-09-15T14:00:00.000Z",
+    "individualEvents": 67,
+    "opportunities": 14,
+    "long": {
+      "weak": 2,
+      "structure": 10,
+      "total": 12
+    },
+    "short": {
+      "weak": 4,
+      "structure": 10,
+      "total": 14
+    }
+  },
+  {
+    "symbol": "ETHUSD",
+    "tf": "4h",
+    "from": "2026-07-02T08:00:00.000Z",
+    "to": "2026-09-15T08:00:00.000Z",
+    "individualEvents": 77,
+    "opportunities": 15,
+    "long": {
+      "weak": 6,
+      "structure": 8,
+      "total": 14
+    },
+    "short": {
+      "weak": 1,
+      "structure": 8,
+      "total": 9
+    }
+  }
+]

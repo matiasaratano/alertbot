@@ -1,0 +1,1003 @@
+{
+  "generatedAt": "2026-09-15T15:10:42.030Z",
+  "parameters": {
+    "window": 3,
+    "cooldown": 4
+  },
+  "feesRoundTripPct": 0.1,
+  "result": [
+    {
+      "symbol": "BTCUSD",
+      "tf": "4h",
+      "horizon": 6,
+      "from": "2026-07-02T08:00:00.000Z",
+      "to": "2026-09-15T08:00:00.000Z",
+      "variants": [
+        {
+          "version": "v7",
+          "side": "bull",
+          "signals": 3,
+          "mature": 3,
+          "winPct": 66.66666666666666,
+          "meanNetPct": -0.5884617189760263,
+          "countertrend": 0,
+          "trades": [
+            {
+              "date": "2026-07-29T08:00:00.000Z",
+              "grossPct": 0.4197128443927056,
+              "netPct": 0.31971284439270564,
+              "countertrend": false
+            },
+            {
+              "date": "2026-09-03T16:00:00.000Z",
+              "grossPct": -2.4070805984314103,
+              "netPct": -2.5070805984314104,
+              "countertrend": false
+            },
+            {
+              "date": "2026-09-11T00:00:00.000Z",
+              "grossPct": 0.5219825971106262,
+              "netPct": 0.42198259711062625,
+              "countertrend": false
+            }
+          ]
+        },
+        {
+          "version": "v7",
+          "side": "bear",
+          "signals": 5,
+          "mature": 5,
+          "winPct": 60,
+          "meanNetPct": 0.0699411258346273,
+          "countertrend": 0,
+          "trades": [
+            {
+              "date": "2026-07-04T20:00:00.000Z",
+              "grossPct": -0.8046235737587448,
+              "netPct": -0.9046235737587448,
+              "countertrend": false
+            },
+            {
+              "date": "2026-07-07T00:00:00.000Z",
+              "grossPct": 0.668356435643569,
+              "netPct": 0.568356435643569,
+              "countertrend": false
+            },
+            {
+              "date": "2026-07-13T08:00:00.000Z",
+              "grossPct": 0.11027288162293036,
+              "netPct": 0.010272881622930358,
+              "countertrend": false
+            },
+            {
+              "date": "2026-07-31T20:00:00.000Z",
+              "grossPct": 0.09837349455126265,
+              "netPct": -0.0016265054487373531,
+              "countertrend": false
+            },
+            {
+              "date": "2026-08-10T16:00:00.000Z",
+              "grossPct": 0.7773263911141193,
+              "netPct": 0.6773263911141193,
+              "countertrend": false
+            }
+          ]
+        },
+        {
+          "version": "v8",
+          "side": "bull",
+          "signals": 6,
+          "mature": 6,
+          "winPct": 50,
+          "meanNetPct": 0.07760530958166499,
+          "countertrend": 2,
+          "trades": [
+            {
+              "date": "2026-07-02T08:00:00.000Z",
+              "grossPct": 1.092083901022245,
+              "netPct": 0.992083901022245,
+              "countertrend": true
+            },
+            {
+              "date": "2026-07-07T12:00:00.000Z",
+              "grossPct": -3.4843123747494986,
+              "netPct": -3.5843123747494987,
+              "countertrend": false
+            },
+            {
+              "date": "2026-07-29T04:00:00.000Z",
+              "grossPct": -0.891422616204407,
+              "netPct": -0.991422616204407,
+              "countertrend": false
+            },
+            {
+              "date": "2026-08-02T16:00:00.000Z",
+              "grossPct": 0.6868303088921834,
+              "netPct": 0.5868303088921835,
+              "countertrend": true
+            },
+            {
+              "date": "2026-09-03T00:00:00.000Z",
+              "grossPct": 4.097946970925936,
+              "netPct": 3.9979469709259363,
+              "countertrend": false
+            },
+            {
+              "date": "2026-09-11T12:00:00.000Z",
+              "grossPct": -0.43549433239646884,
+              "netPct": -0.5354943323964688,
+              "countertrend": false
+            }
+          ]
+        },
+        {
+          "version": "v8",
+          "side": "bear",
+          "signals": 17,
+          "mature": 17,
+          "winPct": 52.94117647058824,
+          "meanNetPct": -0.29752149987124604,
+          "countertrend": 11,
+          "trades": [
+            {
+              "date": "2026-07-05T00:00:00.000Z",
+              "grossPct": -0.8475508729853809,
+              "netPct": -0.9475508729853809,
+              "countertrend": false
+            },
+            {
+              "date": "2026-07-07T00:00:00.000Z",
+              "grossPct": 0.668356435643569,
+              "netPct": 0.568356435643569,
+              "countertrend": false
+            },
+            {
+              "date": "2026-07-07T20:00:00.000Z",
+              "grossPct": 1.70341931499991,
+              "netPct": 1.6034193149999099,
+              "countertrend": false
+            },
+            {
+              "date": "2026-07-11T20:00:00.000Z",
+              "grossPct": 0.0661653569479892,
+              "netPct": -0.03383464305201081,
+              "countertrend": true
+            },
+            {
+              "date": "2026-07-12T20:00:00.000Z",
+              "grossPct": 2.3287593861099687,
+              "netPct": 2.2287593861099686,
+              "countertrend": false
+            },
+            {
+              "date": "2026-07-22T00:00:00.000Z",
+              "grossPct": 0.8181383988488777,
+              "netPct": 0.7181383988488778,
+              "countertrend": true
+            },
+            {
+              "date": "2026-07-23T00:00:00.000Z",
+              "grossPct": 0.33099059450298896,
+              "netPct": 0.23099059450298895,
+              "countertrend": true
+            },
+            {
+              "date": "2026-07-31T04:00:00.000Z",
+              "grossPct": 1.4091318883588166,
+              "netPct": 1.3091318883588166,
+              "countertrend": false
+            },
+            {
+              "date": "2026-08-08T20:00:00.000Z",
+              "grossPct": 0.06348110666674067,
+              "netPct": -0.036518893333259334,
+              "countertrend": true
+            },
+            {
+              "date": "2026-08-09T20:00:00.000Z",
+              "grossPct": 1.4460376194881275,
+              "netPct": 1.3460376194881274,
+              "countertrend": true
+            },
+            {
+              "date": "2026-08-10T16:00:00.000Z",
+              "grossPct": 0.7773263911141193,
+              "netPct": 0.6773263911141193,
+              "countertrend": false
+            },
+            {
+              "date": "2026-08-19T00:00:00.000Z",
+              "grossPct": -7.550234039210313,
+              "netPct": -7.6502340392103125,
+              "countertrend": true
+            },
+            {
+              "date": "2026-08-23T04:00:00.000Z",
+              "grossPct": -1.7372238373432047,
+              "netPct": -1.8372238373432048,
+              "countertrend": true
+            },
+            {
+              "date": "2026-08-24T00:00:00.000Z",
+              "grossPct": -4.596943689486976,
+              "netPct": -4.696943689486976,
+              "countertrend": true
+            },
+            {
+              "date": "2026-08-25T20:00:00.000Z",
+              "grossPct": -0.6357192441679205,
+              "netPct": -0.7357192441679204,
+              "countertrend": true
+            },
+            {
+              "date": "2026-08-28T00:00:00.000Z",
+              "grossPct": 2.893082233739086,
+              "netPct": 2.793082233739086,
+              "countertrend": true
+            },
+            {
+              "date": "2026-09-04T12:00:00.000Z",
+              "grossPct": -0.49508254103758365,
+              "netPct": -0.5950825410375836,
+              "countertrend": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "symbol": "BTCUSD",
+      "tf": "1d",
+      "horizon": 5,
+      "from": "2025-06-21T00:00:00.000Z",
+      "to": "2026-09-14T00:00:00.000Z",
+      "variants": [
+        {
+          "version": "v7",
+          "side": "bull",
+          "signals": 3,
+          "mature": 3,
+          "winPct": 100,
+          "meanNetPct": 1.5879674915885564,
+          "countertrend": 0,
+          "trades": [
+            {
+              "date": "2025-06-27T00:00:00.000Z",
+              "grossPct": 1.6164809168429661,
+              "netPct": 1.516480916842966,
+              "countertrend": false
+            },
+            {
+              "date": "2025-10-23T00:00:00.000Z",
+              "grossPct": 2.578125000000009,
+              "netPct": 2.478125000000009,
+              "countertrend": false
+            },
+            {
+              "date": "2026-08-21T00:00:00.000Z",
+              "grossPct": 0.8692965579226941,
+              "netPct": 0.7692965579226941,
+              "countertrend": false
+            }
+          ]
+        },
+        {
+          "version": "v7",
+          "side": "bear",
+          "signals": 2,
+          "mature": 2,
+          "winPct": 50,
+          "meanNetPct": -1.3968899154938539,
+          "countertrend": 0,
+          "trades": [
+            {
+              "date": "2026-01-11T00:00:00.000Z",
+              "grossPct": -5.117481518493605,
+              "netPct": -5.217481518493605,
+              "countertrend": false
+            },
+            {
+              "date": "2026-05-17T00:00:00.000Z",
+              "grossPct": 2.523701687505897,
+              "netPct": 2.423701687505897,
+              "countertrend": false
+            }
+          ]
+        },
+        {
+          "version": "v8",
+          "side": "bull",
+          "signals": 10,
+          "mature": 10,
+          "winPct": 50,
+          "meanNetPct": 1.997685631815593,
+          "countertrend": 7,
+          "trades": [
+            {
+              "date": "2025-06-23T00:00:00.000Z",
+              "grossPct": 1.8437666358897653,
+              "netPct": 1.7437666358897652,
+              "countertrend": false
+            },
+            {
+              "date": "2025-06-29T00:00:00.000Z",
+              "grossPct": -0.33989221984495055,
+              "netPct": -0.4398922198449505,
+              "countertrend": false
+            },
+            {
+              "date": "2025-11-24T00:00:00.000Z",
+              "grossPct": 2.8984423676012616,
+              "netPct": 2.7984423676012615,
+              "countertrend": true
+            },
+            {
+              "date": "2026-02-13T00:00:00.000Z",
+              "grossPct": -3.4792161011100053,
+              "netPct": -3.5792161011100054,
+              "countertrend": true
+            },
+            {
+              "date": "2026-03-02T00:00:00.000Z",
+              "grossPct": -2.23903805797927,
+              "netPct": -2.3390380579792702,
+              "countertrend": true
+            },
+            {
+              "date": "2026-06-11T00:00:00.000Z",
+              "grossPct": 3.2347447906258875,
+              "netPct": 3.1347447906258874,
+              "countertrend": true
+            },
+            {
+              "date": "2026-07-03T00:00:00.000Z",
+              "grossPct": -0.476342762116444,
+              "netPct": -0.576342762116444,
+              "countertrend": true
+            },
+            {
+              "date": "2026-07-10T00:00:00.000Z",
+              "grossPct": 0.9089845851559142,
+              "netPct": 0.8089845851559142,
+              "countertrend": true
+            },
+            {
+              "date": "2026-08-17T00:00:00.000Z",
+              "grossPct": 19.560365245526356,
+              "netPct": 19.460365245526354,
+              "countertrend": true
+            },
+            {
+              "date": "2026-08-24T00:00:00.000Z",
+              "grossPct": -0.9349581655925809,
+              "netPct": -1.034958165592581,
+              "countertrend": false
+            }
+          ]
+        },
+        {
+          "version": "v8",
+          "side": "bear",
+          "signals": 6,
+          "mature": 6,
+          "winPct": 66.66666666666666,
+          "meanNetPct": 0.955841734531739,
+          "countertrend": 5,
+          "trades": [
+            {
+              "date": "2025-07-15T00:00:00.000Z",
+              "grossPct": 0.35832887439378736,
+              "netPct": 0.2583288743937874,
+              "countertrend": true
+            },
+            {
+              "date": "2025-07-20T00:00:00.000Z",
+              "grossPct": -0.26346968521724357,
+              "netPct": -0.36346968521724354,
+              "countertrend": true
+            },
+            {
+              "date": "2025-08-19T00:00:00.000Z",
+              "grossPct": -0.554549128603643,
+              "netPct": -0.654549128603643,
+              "countertrend": true
+            },
+            {
+              "date": "2025-10-10T00:00:00.000Z",
+              "grossPct": 1.9629203539823115,
+              "netPct": 1.8629203539823114,
+              "countertrend": true
+            },
+            {
+              "date": "2026-05-17T00:00:00.000Z",
+              "grossPct": 2.523701687505897,
+              "netPct": 2.423701687505897,
+              "countertrend": false
+            },
+            {
+              "date": "2026-09-07T00:00:00.000Z",
+              "grossPct": 2.3081183051293253,
+              "netPct": 2.208118305129325,
+              "countertrend": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "symbol": "BTCUSD",
+      "tf": "1w",
+      "horizon": 4,
+      "from": "2018-07-12T00:00:00.000Z",
+      "to": "2026-09-03T00:00:00.000Z",
+      "variants": [
+        {
+          "version": "v7",
+          "side": "bull",
+          "signals": 4,
+          "mature": 3,
+          "winPct": 33.33333333333333,
+          "meanNetPct": -2.68438559217277,
+          "countertrend": 0,
+          "trades": [
+            {
+              "date": "2018-10-11T00:00:00.000Z",
+              "grossPct": -13.06055290812288,
+              "netPct": -13.16055290812288,
+              "countertrend": false
+            },
+            {
+              "date": "2019-04-04T00:00:00.000Z",
+              "grossPct": 11.6172435825159,
+              "netPct": 11.517243582515901,
+              "countertrend": false
+            },
+            {
+              "date": "2026-02-26T00:00:00.000Z",
+              "grossPct": -6.309847450911333,
+              "netPct": -6.409847450911332,
+              "countertrend": false
+            }
+          ]
+        },
+        {
+          "version": "v7",
+          "side": "bear",
+          "signals": 0,
+          "mature": 0,
+          "winPct": null,
+          "meanNetPct": null,
+          "countertrend": 0,
+          "trades": []
+        },
+        {
+          "version": "v8",
+          "side": "bull",
+          "signals": 5,
+          "mature": 4,
+          "winPct": 50,
+          "meanNetPct": -3.5394107119646296,
+          "countertrend": 2,
+          "trades": [
+            {
+              "date": "2018-11-01T00:00:00.000Z",
+              "grossPct": -43.19258211342108,
+              "netPct": -43.29258211342108,
+              "countertrend": false
+            },
+            {
+              "date": "2019-02-07T00:00:00.000Z",
+              "grossPct": 7.757270693512308,
+              "netPct": 7.6572706935123085,
+              "countertrend": true
+            },
+            {
+              "date": "2023-01-05T00:00:00.000Z",
+              "grossPct": 27.98751602296159,
+              "netPct": 27.887516022961588,
+              "countertrend": true
+            },
+            {
+              "date": "2026-02-26T00:00:00.000Z",
+              "grossPct": -6.309847450911333,
+              "netPct": -6.409847450911332,
+              "countertrend": false
+            }
+          ]
+        },
+        {
+          "version": "v8",
+          "side": "bear",
+          "signals": 11,
+          "mature": 11,
+          "winPct": 45.45454545454545,
+          "meanNetPct": -3.369413590759008,
+          "countertrend": 11,
+          "trades": [
+            {
+              "date": "2019-07-11T00:00:00.000Z",
+              "grossPct": -3.2645109418325546,
+              "netPct": -3.3645109418325547,
+              "countertrend": true
+            },
+            {
+              "date": "2021-01-21T00:00:00.000Z",
+              "grossPct": -63.4564435649813,
+              "netPct": -63.5564435649813,
+              "countertrend": true
+            },
+            {
+              "date": "2021-04-15T00:00:00.000Z",
+              "grossPct": 31.725178527296137,
+              "netPct": 31.625178527296136,
+              "countertrend": true
+            },
+            {
+              "date": "2021-11-18T00:00:00.000Z",
+              "grossPct": 14.94742034339448,
+              "netPct": 14.84742034339448,
+              "countertrend": true
+            },
+            {
+              "date": "2021-12-30T00:00:00.000Z",
+              "grossPct": 15.032982213779999,
+              "netPct": 14.932982213779999,
+              "countertrend": true
+            },
+            {
+              "date": "2023-08-17T00:00:00.000Z",
+              "grossPct": -2.716381186713357,
+              "netPct": -2.816381186713357,
+              "countertrend": true
+            },
+            {
+              "date": "2024-01-18T00:00:00.000Z",
+              "grossPct": -29.44137480097231,
+              "netPct": -29.54137480097231,
+              "countertrend": true
+            },
+            {
+              "date": "2024-04-11T00:00:00.000Z",
+              "grossPct": -8.074811860767173,
+              "netPct": -8.174811860767173,
+              "countertrend": true
+            },
+            {
+              "date": "2025-01-30T00:00:00.000Z",
+              "grossPct": 6.213423810775732,
+              "netPct": 6.113423810775732,
+              "countertrend": true
+            },
+            {
+              "date": "2025-08-14T00:00:00.000Z",
+              "grossPct": -1.9210002642775503,
+              "netPct": -2.0210002642775504,
+              "countertrend": true
+            },
+            {
+              "date": "2025-09-18T00:00:00.000Z",
+              "grossPct": 4.991968225948806,
+              "netPct": 4.891968225948807,
+              "countertrend": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "symbol": "ETHUSD",
+      "tf": "4h",
+      "horizon": 6,
+      "from": "2026-07-02T08:00:00.000Z",
+      "to": "2026-09-15T08:00:00.000Z",
+      "variants": [
+        {
+          "version": "v7",
+          "side": "bull",
+          "signals": 1,
+          "mature": 1,
+          "winPct": 0,
+          "meanNetPct": -4.245853867700211,
+          "countertrend": 0,
+          "trades": [
+            {
+              "date": "2026-07-07T12:00:00.000Z",
+              "grossPct": -4.145853867700211,
+              "netPct": -4.245853867700211,
+              "countertrend": false
+            }
+          ]
+        },
+        {
+          "version": "v7",
+          "side": "bear",
+          "signals": 0,
+          "mature": 0,
+          "winPct": null,
+          "meanNetPct": null,
+          "countertrend": 0,
+          "trades": []
+        },
+        {
+          "version": "v8",
+          "side": "bull",
+          "signals": 2,
+          "mature": 2,
+          "winPct": 0,
+          "meanNetPct": -2.477754394549036,
+          "countertrend": 0,
+          "trades": [
+            {
+              "date": "2026-07-07T12:00:00.000Z",
+              "grossPct": -4.145853867700211,
+              "netPct": -4.245853867700211,
+              "countertrend": false
+            },
+            {
+              "date": "2026-08-01T12:00:00.000Z",
+              "grossPct": -0.6096549213978619,
+              "netPct": -0.7096549213978619,
+              "countertrend": false
+            }
+          ]
+        },
+        {
+          "version": "v8",
+          "side": "bear",
+          "signals": 13,
+          "mature": 13,
+          "winPct": 53.84615384615385,
+          "meanNetPct": 0.051696844737620276,
+          "countertrend": 13,
+          "trades": [
+            {
+              "date": "2026-07-05T00:00:00.000Z",
+              "grossPct": -1.0130739379200948,
+              "netPct": -1.113073937920095,
+              "countertrend": true
+            },
+            {
+              "date": "2026-07-07T00:00:00.000Z",
+              "grossPct": 1.1373780977026349,
+              "netPct": 1.0373780977026348,
+              "countertrend": true
+            },
+            {
+              "date": "2026-07-07T20:00:00.000Z",
+              "grossPct": 1.5635418432502712,
+              "netPct": 1.4635418432502711,
+              "countertrend": true
+            },
+            {
+              "date": "2026-07-11T20:00:00.000Z",
+              "grossPct": -1.055595045531632,
+              "netPct": -1.1555950455316322,
+              "countertrend": true
+            },
+            {
+              "date": "2026-07-12T20:00:00.000Z",
+              "grossPct": 1.7124786078634324,
+              "netPct": 1.6124786078634323,
+              "countertrend": true
+            },
+            {
+              "date": "2026-07-16T08:00:00.000Z",
+              "grossPct": 2.4617442397414036,
+              "netPct": 2.3617442397414035,
+              "countertrend": true
+            },
+            {
+              "date": "2026-07-21T16:00:00.000Z",
+              "grossPct": -0.0827065322555498,
+              "netPct": -0.1827065322555498,
+              "countertrend": true
+            },
+            {
+              "date": "2026-07-23T12:00:00.000Z",
+              "grossPct": 1.791634113895979,
+              "netPct": 1.691634113895979,
+              "countertrend": true
+            },
+            {
+              "date": "2026-07-27T20:00:00.000Z",
+              "grossPct": -1.5385103581042836,
+              "netPct": -1.6385103581042837,
+              "countertrend": true
+            },
+            {
+              "date": "2026-08-08T20:00:00.000Z",
+              "grossPct": 0.33836176512053173,
+              "netPct": 0.23836176512053173,
+              "countertrend": true
+            },
+            {
+              "date": "2026-08-23T04:00:00.000Z",
+              "grossPct": -2.754959345508734,
+              "netPct": -2.854959345508734,
+              "countertrend": true
+            },
+            {
+              "date": "2026-08-24T00:00:00.000Z",
+              "grossPct": -2.7902690293303056,
+              "netPct": -2.8902690293303057,
+              "countertrend": true
+            },
+            {
+              "date": "2026-08-28T00:00:00.000Z",
+              "grossPct": 2.2020345626654114,
+              "netPct": 2.1020345626654113,
+              "countertrend": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "symbol": "ETHUSD",
+      "tf": "1d",
+      "horizon": 5,
+      "from": "2025-06-21T00:00:00.000Z",
+      "to": "2026-09-14T00:00:00.000Z",
+      "variants": [
+        {
+          "version": "v7",
+          "side": "bull",
+          "signals": 1,
+          "mature": 1,
+          "winPct": 0,
+          "meanNetPct": -15.143350425533807,
+          "countertrend": 0,
+          "trades": [
+            {
+              "date": "2025-10-05T00:00:00.000Z",
+              "grossPct": -15.043350425533808,
+              "netPct": -15.143350425533807,
+              "countertrend": false
+            }
+          ]
+        },
+        {
+          "version": "v7",
+          "side": "bear",
+          "signals": 2,
+          "mature": 2,
+          "winPct": 50,
+          "meanNetPct": 2.04788395514427,
+          "countertrend": 0,
+          "trades": [
+            {
+              "date": "2026-01-19T00:00:00.000Z",
+              "grossPct": 7.483183153033313,
+              "netPct": 7.383183153033313,
+              "countertrend": false
+            },
+            {
+              "date": "2026-08-01T00:00:00.000Z",
+              "grossPct": -3.1874152427447733,
+              "netPct": -3.2874152427447734,
+              "countertrend": false
+            }
+          ]
+        },
+        {
+          "version": "v8",
+          "side": "bull",
+          "signals": 8,
+          "mature": 8,
+          "winPct": 50,
+          "meanNetPct": -3.0553460298575468,
+          "countertrend": 6,
+          "trades": [
+            {
+              "date": "2025-10-01T00:00:00.000Z",
+              "grossPct": 7.793175109656181,
+              "netPct": 7.693175109656181,
+              "countertrend": false
+            },
+            {
+              "date": "2025-10-06T00:00:00.000Z",
+              "grossPct": -20.012842420092202,
+              "netPct": -20.112842420092203,
+              "countertrend": false
+            },
+            {
+              "date": "2025-11-09T00:00:00.000Z",
+              "grossPct": -13.252013693394083,
+              "netPct": -13.352013693394083,
+              "countertrend": true
+            },
+            {
+              "date": "2025-11-24T00:00:00.000Z",
+              "grossPct": 1.2917191755762447,
+              "netPct": 1.1917191755762446,
+              "countertrend": true
+            },
+            {
+              "date": "2026-02-13T00:00:00.000Z",
+              "grossPct": -4.510958743553683,
+              "netPct": -4.610958743553683,
+              "countertrend": true
+            },
+            {
+              "date": "2026-03-04T00:00:00.000Z",
+              "grossPct": -6.26844489558075,
+              "netPct": -6.368444895580749,
+              "countertrend": true
+            },
+            {
+              "date": "2026-06-11T00:00:00.000Z",
+              "grossPct": 7.160205790859053,
+              "netPct": 7.060205790859054,
+              "countertrend": true
+            },
+            {
+              "date": "2026-07-02T00:00:00.000Z",
+              "grossPct": 4.15639143766886,
+              "netPct": 4.056391437668861,
+              "countertrend": true
+            }
+          ]
+        },
+        {
+          "version": "v8",
+          "side": "bear",
+          "signals": 7,
+          "mature": 7,
+          "winPct": 28.57142857142857,
+          "meanNetPct": -1.9256473705476609,
+          "countertrend": 5,
+          "trades": [
+            {
+              "date": "2025-08-01T00:00:00.000Z",
+              "grossPct": -5.668452879551111,
+              "netPct": -5.768452879551111,
+              "countertrend": true
+            },
+            {
+              "date": "2025-08-18T00:00:00.000Z",
+              "grossPct": -10.7622850464689,
+              "netPct": -10.8622850464689,
+              "countertrend": true
+            },
+            {
+              "date": "2025-08-25T00:00:00.000Z",
+              "grossPct": 0.07309958219019475,
+              "netPct": -0.02690041780980526,
+              "countertrend": true
+            },
+            {
+              "date": "2025-09-01T00:00:00.000Z",
+              "grossPct": 0.9175927964677699,
+              "netPct": 0.8175927964677699,
+              "countertrend": true
+            },
+            {
+              "date": "2026-01-19T00:00:00.000Z",
+              "grossPct": 7.483183153033313,
+              "netPct": 7.383183153033313,
+              "countertrend": false
+            },
+            {
+              "date": "2026-08-01T00:00:00.000Z",
+              "grossPct": -3.1874152427447733,
+              "netPct": -3.2874152427447734,
+              "countertrend": false
+            },
+            {
+              "date": "2026-08-30T00:00:00.000Z",
+              "grossPct": -1.6352539567601188,
+              "netPct": -1.7352539567601188,
+              "countertrend": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "symbol": "ETHUSD",
+      "tf": "1w",
+      "horizon": 4,
+      "from": "2020-05-14T00:00:00.000Z",
+      "to": "2026-09-03T00:00:00.000Z",
+      "variants": [
+        {
+          "version": "v7",
+          "side": "bull",
+          "signals": 1,
+          "mature": 1,
+          "winPct": 0,
+          "meanNetPct": -10.697381342062195,
+          "countertrend": 0,
+          "trades": [
+            {
+              "date": "2022-08-11T00:00:00.000Z",
+              "grossPct": -10.597381342062196,
+              "netPct": -10.697381342062195,
+              "countertrend": false
+            }
+          ]
+        },
+        {
+          "version": "v7",
+          "side": "bear",
+          "signals": 0,
+          "mature": 0,
+          "winPct": null,
+          "meanNetPct": null,
+          "countertrend": 0,
+          "trades": []
+        },
+        {
+          "version": "v8",
+          "side": "bull",
+          "signals": 4,
+          "mature": 3,
+          "winPct": 66.66666666666666,
+          "meanNetPct": 20.107975933993224,
+          "countertrend": 4,
+          "trades": [
+            {
+              "date": "2022-07-14T00:00:00.000Z",
+              "grossPct": 20.52708407306585,
+              "netPct": 20.42708407306585,
+              "countertrend": true
+            },
+            {
+              "date": "2025-04-17T00:00:00.000Z",
+              "grossPct": 42.0951532529718,
+              "netPct": 41.9951532529718,
+              "countertrend": true
+            },
+            {
+              "date": "2026-07-09T00:00:00.000Z",
+              "grossPct": -1.998309524057973,
+              "netPct": -2.098309524057973,
+              "countertrend": true
+            }
+          ]
+        },
+        {
+          "version": "v8",
+          "side": "bear",
+          "signals": 5,
+          "mature": 5,
+          "winPct": 60,
+          "meanNetPct": -10.344020911919893,
+          "countertrend": 5,
+          "trades": [
+            {
+              "date": "2020-09-03T00:00:00.000Z",
+              "grossPct": 2.643272188674939,
+              "netPct": 2.5432721886749388,
+              "countertrend": true
+            },
+            {
+              "date": "2021-03-18T00:00:00.000Z",
+              "grossPct": -49.05246523388118,
+              "netPct": -49.15246523388118,
+              "countertrend": true
+            },
+            {
+              "date": "2021-05-13T00:00:00.000Z",
+              "grossPct": 3.116278308411291,
+              "netPct": 3.016278308411291,
+              "countertrend": true
+            },
+            {
+              "date": "2024-01-18T00:00:00.000Z",
+              "grossPct": -33.00909595516481,
+              "netPct": -33.10909595516481,
+              "countertrend": true
+            },
+            {
+              "date": "2025-01-23T00:00:00.000Z",
+              "grossPct": 25.08190613236031,
+              "netPct": 24.981906132360308,
+              "countertrend": true
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,3 +1,7 @@
+> Bot con seguimiento manual: ver [SEGUIMIENTO-TELEGRAM.md](SEGUIMIENTO-TELEGRAM.md). Esa guía reemplaza las reglas de notificación anteriores; el Pine v8 se conserva.
+
+> Versión vigente v8, 15/09/2026: consultar [NOTIFICACIONES.md](NOTIFICACIONES.md) y [comparación histórica](audit-v8/INFORME.md). Las revisiones siguientes describen versiones anteriores.
+
 > Actualización 14/09/2026: la política vigente, el nuevo Pine y la activación están en [NOTIFICACIONES.md](NOTIFICACIONES.md). Las descripciones de la revisión anterior que siguen no incluyen los nuevos preavisos; su auditoría de volumen no valida esta versión.
 
 # Revisión actual: confluencia y Telegram selectivo

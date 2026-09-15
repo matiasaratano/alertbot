@@ -1,5 +1,5 @@
 //@version=6
-indicator("Momentum + RSI · Oportunidades v8", overlay=false, max_lines_count=400, max_labels_count=400)
+indicator("SQZMOM + RSI + Divergencias + Confluencia + Preaviso v7", overlay=false, max_lines_count=400, max_labels_count=400)
 
 //==============================================================================
 // GRUPOS
@@ -19,13 +19,9 @@ int   rsiLen         = input.int(14, "Período RSI", minval=1, group=GRP_RSI)
 float buyLevel       = input.float(30.0, "Nivel de sobreventa", minval=1, maxval=50, group=GRP_RSI)
 float sellLevel      = input.float(70.0, "Nivel de sobrecompra", minval=50, maxval=99, group=GRP_RSI)
 
-string panelMode = input.string("Momentum", "Panel inferior", options=["Momentum", "RSI"], group=GRP_VIS)
-bool rsiPanel = panelMode == "RSI"
 float rsi = ta.rsi(close, rsiLen)
-bool rsiCrossUp = ta.crossover(rsi, buyLevel)
-bool rsiCrossDown = ta.crossunder(rsi, sellLevel)
-bool rsiBullTrigger = barstate.isconfirmed and rsiCrossUp
-bool rsiBearTrigger = barstate.isconfirmed and rsiCrossDown
+bool rsiBullTrigger = barstate.isconfirmed and ta.crossover(rsi, buyLevel)
+bool rsiBearTrigger = barstate.isconfirmed and ta.crossunder(rsi, sellLevel)
 
 //==============================================================================
 // SQUEEZE MOMENTUM (base LazyBear)
@@ -57,11 +53,8 @@ float sqzMom    = ta.linreg(close - meanKC, kcLength, 0)
 color histColor = sqzMom > 0 ? (sqzMom > sqzMom[1] ? color.lime : color.green) : (sqzMom < sqzMom[1] ? color.red : color.maroon)
 color sqzColor  = sqzOn ? color.gray : sqzOff ? color.blue : color.black
 
-plot(rsiPanel ? na : sqzMom, "Momentum", style=plot.style_histogram, linewidth=4, color=histColor)
-plot(rsiPanel ? na : 0, "Estado Squeeze", style=plot.style_cross, linewidth=2, color=sqzColor)
-plot(rsiPanel ? rsi : na, "RSI panel", color=color.purple, linewidth=2)
-plot(rsiPanel ? buyLevel : na, "RSI banda inferior", color=color.new(color.green, 50))
-plot(rsiPanel ? sellLevel : na, "RSI banda superior", color=color.new(color.red, 50))
+plot(sqzMom, "Momentum", style=plot.style_histogram, linewidth=4, color=histColor)
+plot(0, "Estado Squeeze", style=plot.style_cross, linewidth=2, color=sqzColor)
 hline(0, "Cero", color=color.new(color.white, 55), linestyle=hline.style_dotted)
 
 // Giro de momentum: reversión posible mientras el histograma sigue del otro lado de cero.
@@ -136,7 +129,7 @@ int earlyLowBar = lastMomLowBar
 if barstate.isconfirmed and momHighFound
     int barsSince = na(lastMomHighBar) ? na : currentPivotBar - lastMomHighBar
     momBearDiv := not na(lastMomHigh) and lastMomHigh > 0 and currentMomHigh > 0 and currentPriceHigh > lastMomHighPrice and currentMomHigh < lastMomHigh and barsSince >= divRangeMin and barsSince <= divRangeMax
-    if momBearDiv and showMomDivs and not rsiPanel
+    if momBearDiv and showMomDivs
         line.new(lastMomHighBar, lastMomHigh, currentPivotBar, currentMomHigh, width=2, color=color.red)
     lastMomHigh      := currentMomHigh
     lastMomHighPrice := currentPriceHigh
@@ -145,7 +138,7 @@ if barstate.isconfirmed and momHighFound
 if barstate.isconfirmed and momLowFound
     int barsSince = na(lastMomLowBar) ? na : currentPivotBar - lastMomLowBar
     momBullDiv := not na(lastMomLow) and lastMomLow < 0 and currentMomLow < 0 and currentPriceLow < lastMomLowPrice and currentMomLow > lastMomLow and barsSince >= divRangeMin and barsSince <= divRangeMax
-    if momBullDiv and showMomDivs and not rsiPanel
+    if momBullDiv and showMomDivs
         line.new(lastMomLowBar, lastMomLow, currentPivotBar, currentMomLow, width=2, color=color.lime)
     lastMomLow      := currentMomLow
     lastMomLowPrice := currentPriceLow
@@ -156,11 +149,6 @@ if barstate.isconfirmed and rsiHighFound
     rsiBearDiv := not na(lastRsiHigh) and currentPriceHigh > lastRsiHighPrice and currentRsiHigh < lastRsiHigh and barsSince >= divRangeMin and barsSince <= divRangeMax
     if rsiBearDiv and showRsiDivs
         line.new(lastRsiHighBar, lastRsiHighPrice, currentPivotBar, currentPriceHigh, width=2, color=color.fuchsia, force_overlay=true)
-    if rsiBearDiv and showRsiDivs
-        label.new(bar_index, high, "RSI−", yloc=yloc.abovebar, style=label.style_label_down, color=color.new(color.fuchsia, 30), textcolor=color.white, size=size.tiny, force_overlay=true,
-             tooltip="RSI: " + str.tostring(lastRsiHigh, "#.0") + " → " + str.tostring(currentRsiHigh, "#.0") + "\nPrecio: " + str.tostring(lastRsiHighPrice, format.mintick) + " → " + str.tostring(currentPriceHigh, format.mintick) + "\nConfirmada " + str.tostring(pivotLen) + " velas después del extremo.")
-        if rsiPanel
-            line.new(lastRsiHighBar, lastRsiHigh, currentPivotBar, currentRsiHigh, color=color.fuchsia, width=2)
     lastRsiHigh      := currentRsiHigh
     lastRsiHighPrice := currentPriceHigh
     lastRsiHighBar   := currentPivotBar
@@ -170,11 +158,6 @@ if barstate.isconfirmed and rsiLowFound
     rsiBullDiv := not na(lastRsiLow) and currentPriceLow < lastRsiLowPrice and currentRsiLow > lastRsiLow and barsSince >= divRangeMin and barsSince <= divRangeMax
     if rsiBullDiv and showRsiDivs
         line.new(lastRsiLowBar, lastRsiLowPrice, currentPivotBar, currentPriceLow, width=2, color=color.aqua, force_overlay=true)
-    if rsiBullDiv and showRsiDivs
-        label.new(bar_index, low, "RSI+", yloc=yloc.belowbar, style=label.style_label_up, color=color.new(color.aqua, 30), textcolor=color.white, size=size.tiny, force_overlay=true,
-             tooltip="RSI: " + str.tostring(lastRsiLow, "#.0") + " → " + str.tostring(currentRsiLow, "#.0") + "\nPrecio: " + str.tostring(lastRsiLowPrice, format.mintick) + " → " + str.tostring(currentPriceLow, format.mintick) + "\nConfirmada " + str.tostring(pivotLen) + " velas después del extremo.")
-        if rsiPanel
-            line.new(lastRsiLowBar, lastRsiLow, currentPivotBar, currentRsiLow, color=color.aqua, width=2)
     lastRsiLow      := currentRsiLow
     lastRsiLowPrice := currentPriceLow
     lastRsiLowBar   := currentPivotBar
@@ -203,14 +186,12 @@ if earlyBearDiv
     lastEarlyBearReference := earlyHighBar
 if earlyBullDiv
     lastEarlyBullReference := earlyLowBar
-bool earlyBearSetup = earlyBearDiv
-bool earlyBullSetup = earlyBullDiv
 earlyBearDiv := earlyBearDiv and earlyTimeframe
 earlyBullDiv := earlyBullDiv and earlyTimeframe
-if not rsiPanel and showMomDivs and showEarlyMomDivs and earlyBearDiv
+if showMomDivs and showEarlyMomDivs and earlyBearDiv
     line.new(earlyHighBar, earlyHigh, candidateBar, sqzMom[1], color=color.orange, style=line.style_dashed)
     label.new(bar_index, sqzMom, "PRE Bear\n1 vela", style=label.style_label_down, color=color.orange, textcolor=color.white, size=size.tiny)
-if not rsiPanel and showMomDivs and showEarlyMomDivs and earlyBullDiv
+if showMomDivs and showEarlyMomDivs and earlyBullDiv
     line.new(earlyLowBar, earlyLow, candidateBar, sqzMom[1], color=color.aqua, style=line.style_dashed)
     label.new(bar_index, sqzMom, "PRE Bull\n1 vela", style=label.style_label_up, color=color.aqua, textcolor=color.black, size=size.tiny)
 
@@ -230,108 +211,97 @@ var label formingLabel = na
 if barstate.islast
     line.delete(formingLine)
     label.delete(formingLabel)
-    if not rsiPanel and showEarlyMomDivs and showMomDivs and earlyTimeframe and (formingBear or formingBull)
+    if showEarlyMomDivs and showMomDivs and earlyTimeframe and (formingBear or formingBull)
         formingLine := line.new(formingBear ? lastMomHighBar : lastMomLowBar, formingBear ? lastMomHigh : lastMomLow, bar_index, sqzMom, color=color.yellow, style=line.style_dashed)
         formingLabel := label.new(bar_index, sqzMom, "EN FORMACIÓN\nPuede invalidarse", style=label.style_label_left, color=color.yellow, textcolor=color.black, size=size.tiny)
 
 //==============================================================================
 // CONFLUENCIA
 //==============================================================================
-bool showConfluence = input.bool(true, "Mostrar BUY/SELL de oportunidad", group=GRP_CONF)
-int setupWindow = input.int(3, "Vigencia del setup (velas)", minval=0, maxval=10, group=GRP_CONF)
-int signalCooldown = input.int(4, "Espera entre señales iguales", minval=0, maxval=100, group=GRP_CONF)
-bool showEma20 = input.bool(false, "Mostrar EMA20 (corto plazo)", group=GRP_VIS)
-bool showEma50 = input.bool(true, "Mostrar EMA50", group=GRP_VIS)
-bool showEma = input.bool(true, "Mostrar EMA200", group=GRP_VIS)
-int emaLength = input.int(200, "EMA de contexto", minval=1, group=GRP_CONF)
+bool showConfluence = input.bool(true, "Mostrar BUY/SELL por confluencia", group=GRP_CONF)
+int confluenceWindow = input.int(8, "Ventana de coincidencia (velas)", minval=0, maxval=50, group=GRP_CONF,
+     tooltip="Las condiciones no necesitan ocurrir en la misma vela; deben aparecer dentro de esta ventana.")
+int minimumScore = input.int(2, "Puntaje mínimo", minval=2, maxval=4, group=GRP_CONF)
+int signalCooldown = input.int(8, "Espera entre señales iguales", minval=0, maxval=100, group=GRP_CONF)
+bool useEmaFilter = input.bool(true, "Filtrar por tendencia EMA", group=GRP_CONF)
+int emaLength = input.int(200, "Período EMA", minval=1, group=GRP_CONF)
+bool showEma = input.bool(false, "Dibujar EMA en precio", group=GRP_CONF)
+
 float trendEma = ta.ema(close, emaLength)
-float ema20 = ta.ema(close, 20)
-float ema50 = ta.ema(close, 50)
-bool bullTrendOk = close > trendEma
-bool bearTrendOk = close < trendEma
+bool bullTrendOk = not useEmaFilter or close > trendEma
+bool bearTrendOk = not useEmaFilter or close < trendEma
 
 f_recent(bool condition, int window) =>
-    int age = ta.barssince(condition)
-    not na(age) and age <= window
+    int barsAgo = ta.barssince(condition)
+    not na(barsAgo) and barsAgo <= window
 
-bool recentRsiBull = f_recent(rsiBullTrigger, setupWindow)
-bool recentRsiBear = f_recent(rsiBearTrigger, setupWindow)
-bool recentRsiBullDiv = f_recent(rsiBullDiv, setupWindow)
-bool recentRsiBearDiv = f_recent(rsiBearDiv, setupWindow)
-bool recentMomBullDiv = f_recent(momBullDiv, setupWindow)
-bool recentMomBearDiv = f_recent(momBearDiv, setupWindow)
-bool recentEarlyBull = f_recent(earlyBullSetup, setupWindow)
-bool recentEarlyBear = f_recent(earlyBearSetup, setupWindow)
-bool freshBullSetup = rsiBullTrigger or rsiBullDiv or momBullDiv or earlyBullSetup
-bool freshBearSetup = rsiBearTrigger or rsiBearDiv or momBearDiv or earlyBearSetup
-var int lastBullSetup = na
-var int lastBearSetup = na
-if freshBullSetup
-    lastBullSetup := bar_index
-if freshBearSetup
-    lastBearSetup := bar_index
-var int usedBullSetup = na
-var int usedBearSetup = na
-var int lastBuyBar = na
+bool recentRsiBull = f_recent(rsiBullTrigger, confluenceWindow)
+bool recentRsiBear = f_recent(rsiBearTrigger, confluenceWindow)
+bool recentSqzBull = f_recent(sqzBullEvent, confluenceWindow)
+bool recentSqzBear = f_recent(sqzBearEvent, confluenceWindow)
+bool recentRsiBullDiv = f_recent(rsiBullDiv, confluenceWindow)
+bool recentRsiBearDiv = f_recent(rsiBearDiv, confluenceWindow)
+bool recentMomBullDiv = f_recent(momBullDiv, confluenceWindow)
+bool recentMomBearDiv = f_recent(momBearDiv, confluenceWindow)
+
+int bullScore = (recentRsiBull ? 1 : 0) + (recentSqzBull ? 1 : 0) + (recentRsiBullDiv ? 1 : 0) + (recentMomBullDiv ? 1 : 0)
+int bearScore = (recentRsiBear ? 1 : 0) + (recentSqzBear ? 1 : 0) + (recentRsiBearDiv ? 1 : 0) + (recentMomBearDiv ? 1 : 0)
+
+bool freshBullEvent = rsiBullTrigger or sqzBullEvent or rsiBullDiv or momBullDiv
+bool freshBearEvent = rsiBearTrigger or sqzBearEvent or rsiBearDiv or momBearDiv
+bool rawBuy  = barstate.isconfirmed and freshBullEvent and bullTrendOk and bullScore >= minimumScore
+bool rawSell = barstate.isconfirmed and freshBearEvent and bearTrendOk and bearScore >= minimumScore
+
+var int lastBuyBar  = na
 var int lastSellBar = na
-bool bullReady = recentRsiBull or recentRsiBullDiv or recentMomBullDiv or recentEarlyBull
-bool bearReady = recentRsiBear or recentRsiBearDiv or recentMomBearDiv or recentEarlyBear
-bool buySignal = barstate.isconfirmed and bullReady and sqzMom > sqzMom[1] and close > high[1] and
-     (na(usedBullSetup) or lastBullSetup > usedBullSetup) and (na(lastBuyBar) or bar_index - lastBuyBar > signalCooldown)
-bool sellSignal = barstate.isconfirmed and bearReady and sqzMom < sqzMom[1] and close < low[1] and
-     (na(usedBearSetup) or lastBearSetup > usedBearSetup) and (na(lastSellBar) or bar_index - lastSellBar > signalCooldown)
-string bullReason = (recentRsiBull ? "RSI salió de sobreventa. " : "") + (recentRsiBullDiv ? "Divergencia RSI. " : "") + (recentMomBullDiv ? "Divergencia momentum confirmada. " : "") + (recentEarlyBull ? "Divergencia momentum tentativa. " : "")
-string bearReason = (recentRsiBear ? "RSI salió de sobrecompra. " : "") + (recentRsiBearDiv ? "Divergencia RSI. " : "") + (recentMomBearDiv ? "Divergencia momentum confirmada. " : "") + (recentEarlyBear ? "Divergencia momentum tentativa. " : "")
+bool buySignal  = rawBuy and (na(lastBuyBar) or bar_index - lastBuyBar > signalCooldown)
+bool sellSignal = rawSell and (na(lastSellBar) or bar_index - lastSellBar > signalCooldown)
+
 if buySignal
     lastBuyBar := bar_index
-    usedBullSetup := lastBullSetup
 if sellSignal
     lastSellBar := bar_index
-    usedBearSetup := lastBearSetup
 
 //==============================================================================
 // VISUALIZACIÓN
 //==============================================================================
-bool showConfirmedMarkers = input.bool(false, "Marcar confirmación de divergencias", group=GRP_VIS)
+bool showConfirmedMarkers = input.bool(true, "Marcar confirmación de divergencias", group=GRP_VIS)
 
-plot(showEma20 ? ema20 : na, "EMA20", color=color.new(color.gray, 30), linewidth=1, force_overlay=true)
-plot(showEma50 ? ema50 : na, "EMA50", color=color.teal, linewidth=2, force_overlay=true)
-plot(showEma ? trendEma : na, "EMA tendencia", color=color.orange, linewidth=2, force_overlay=true)
+plot(showEma ? trendEma : na, "EMA tendencia", color=color.new(color.yellow, 15), linewidth=2, force_overlay=true)
 
 plotshape(showRsiSignals and rsiBullTrigger, "RSI sale de sobreventa", shape.circle, location.belowbar,
-     color=color.new(color.lime, 15), size=size.tiny, display=display.pane, textcolor=color.white, force_overlay=true)
+     color=color.new(color.green, 25), size=size.tiny, text="R", textcolor=color.white, force_overlay=true)
 plotshape(showRsiSignals and rsiBearTrigger, "RSI sale de sobrecompra", shape.circle, location.abovebar,
-     color=color.new(color.red, 15), size=size.tiny, display=display.pane, textcolor=color.white, force_overlay=true)
+     color=color.new(color.red, 25), size=size.tiny, text="R", textcolor=color.white, force_overlay=true)
 
 plotshape(showSqzSignals and sqzBullTurn, "Giro SQZ alcista", shape.diamond, location.belowbar,
-     color=color.lime, size=size.tiny, display=display.pane, textcolor=color.black, force_overlay=true)
+     color=color.aqua, size=size.tiny, text="S", textcolor=color.black, force_overlay=true)
 plotshape(showSqzSignals and sqzBearTurn, "Giro SQZ bajista", shape.diamond, location.abovebar,
-     color=color.red, size=size.tiny, display=display.pane, textcolor=color.black, force_overlay=true)
+     color=color.orange, size=size.tiny, text="S", textcolor=color.black, force_overlay=true)
 plotshape(showSqzSignals and sqzBreakBull, "Salida squeeze alcista", shape.square, location.belowbar,
-     color=color.lime, size=size.tiny, display=display.pane, textcolor=color.white, force_overlay=true)
+     color=color.blue, size=size.tiny, text="SQ", textcolor=color.white, force_overlay=true)
 plotshape(showSqzSignals and sqzBreakBear, "Salida squeeze bajista", shape.square, location.abovebar,
-     color=color.red, size=size.tiny, display=display.pane, textcolor=color.white, force_overlay=true)
+     color=color.purple, size=size.tiny, text="SQ", textcolor=color.white, force_overlay=true)
 
 plotshape(showConfirmedMarkers and showMomDivs and momBullDiv, "SQZ Bull Div confirmada", shape.triangleup, location.bottom,
-     color=color.lime, size=size.tiny, display=display.pane, text="M DIV+", textcolor=color.black)
+     color=color.lime, size=size.tiny, text="M DIV+", textcolor=color.black)
 plotshape(showConfirmedMarkers and showMomDivs and momBearDiv, "SQZ Bear Div confirmada", shape.triangledown, location.top,
-     color=color.red, size=size.tiny, display=display.pane, text="M DIV-", textcolor=color.white)
+     color=color.red, size=size.tiny, text="M DIV-", textcolor=color.white)
 
-if showConfluence and buySignal
-    label.new(bar_index, low, "BUY", yloc=yloc.belowbar, style=label.style_label_up, color=color.green, textcolor=color.white, size=size.small, force_overlay=true,
-         tooltip=bullReason + "Momentum sube y cierre supera el máximo anterior. " + (bullTrendOk ? "Encima de EMA200." : "Contra EMA200: posible rebote o giro."))
-if showConfluence and sellSignal
-    label.new(bar_index, high, "SELL", yloc=yloc.abovebar, style=label.style_label_down, color=color.red, textcolor=color.white, size=size.small, force_overlay=true,
-         tooltip=bearReason + "Momentum cae y cierre pierde el mínimo anterior. " + (bearTrendOk ? "Debajo de EMA200." : "Contra EMA200: posible corrección o giro."))
+plotshape(showConfirmedMarkers and showRsiDivs and rsiBullDiv, "RSI Bull Div confirmada", shape.triangleup, location.belowbar,
+     color=color.aqua, size=size.tiny, text="RSI DIV+", textcolor=color.black, force_overlay=true)
+plotshape(showConfirmedMarkers and showRsiDivs and rsiBearDiv, "RSI Bear Div confirmada", shape.triangledown, location.abovebar,
+     color=color.fuchsia, size=size.tiny, text="RSI DIV-", textcolor=color.white, force_overlay=true)
 
+plotshape(showConfluence and buySignal, "BUY por confluencia", shape.labelup, location.belowbar,
+     color=color.green, size=size.small, text="BUY", textcolor=color.white, force_overlay=true)
+plotshape(showConfluence and sellSignal, "SELL por confluencia", shape.labeldown, location.abovebar,
+     color=color.red, size=size.small, text="SELL", textcolor=color.white, force_overlay=true)
+
+// Puntajes disponibles en la ventana de datos sin deformar el panel.
+plot(bullScore, "Bull score", display=display.data_window)
+plot(bearScore, "Bear score", display=display.data_window)
 plot(rsi, "RSI", display=display.data_window)
-bool showContext = input.bool(true, "Resumen RSI y tendencia", group=GRP_VIS)
-var table context = table.new(position.top_right, 2, 2, bgcolor=color.new(color.black, 20))
-if barstate.islast and showContext
-    table.cell(context, 0, 0, "RSI " + str.tostring(rsiLen), text_color=color.white)
-    table.cell(context, 1, 0, str.tostring(rsi, "#.0"), text_color=rsi > sellLevel ? color.red : rsi < buyLevel ? color.lime : color.white)
-    table.cell(context, 0, 1, "EMA " + str.tostring(emaLength), text_color=color.white)
-    table.cell(context, 1, 1, close > trendEma ? "Precio encima" : "Precio debajo", text_color=close > trendEma ? color.lime : color.orange)
 
 //==============================================================================
 // ALERTAS
@@ -339,14 +309,14 @@ if barstate.islast and showContext
 bool alertIndividual = input.bool(false, "Alertar señales individuales", group=GRP_ALERT)
 bool alertDivs       = input.bool(false, "Alertar divergencias confirmadas", group=GRP_ALERT)
 bool alertEarly      = input.bool(true, "Alertar preavisos SQZMOM", group=GRP_ALERT)
-bool alertConfluence = input.bool(true, "Alertar BUY/SELL de oportunidad", group=GRP_ALERT)
+bool alertConfluence = input.bool(true, "Alertar BUY/SELL por confluencia", group=GRP_ALERT)
 
 string signals = ""
 
 if alertConfluence and buySignal
-    signals += "BUY de oportunidad: " + bullReason + "Cierre supera el máximo previo y momentum sube.\n"
+    signals += "BUY por confluencia (score " + str.tostring(bullScore) + "/4).\n"
 if alertConfluence and sellSignal
-    signals += "SELL de oportunidad: " + bearReason + "Cierre pierde el mínimo previo y momentum cae.\n"
+    signals += "SELL por confluencia (score " + str.tostring(bearScore) + "/4).\n"
 if alertDivs and rsiBullDiv
     signals += "Divergencia RSI alcista confirmada con " + str.tostring(pivotLen) + " velas de demora.\n"
 if alertDivs and rsiBearDiv
@@ -371,8 +341,8 @@ if alertIndividual and sqzBearEvent
 if barstate.isconfirmed and str.length(signals) > 0
     alert(syminfo.tickerid + " / " + timeframe.period + "\n" + signals, alert.freq_once_per_bar_close)
 
-alertcondition(alertConfluence and buySignal, "BUY de oportunidad", "BUY de oportunidad confirmado al cierre")
-alertcondition(alertConfluence and sellSignal, "SELL de oportunidad", "SELL de oportunidad confirmado al cierre")
+alertcondition(alertConfluence and buySignal, "BUY por confluencia", "BUY por confluencia confirmado al cierre")
+alertcondition(alertConfluence and sellSignal, "SELL por confluencia", "SELL por confluencia confirmado al cierre")
 alertcondition(alertDivs and rsiBullDiv, "RSI Bull Div", "Divergencia RSI alcista confirmada")
 alertcondition(alertDivs and rsiBearDiv, "RSI Bear Div", "Divergencia RSI bajista confirmada")
 alertcondition(alertDivs and momBullDiv, "SQZ Bull Div", "Divergencia SQZMOM alcista confirmada")
