@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {classifyWeakness,transitionMonitor,buildWeakness} from './monitor.mjs';
+import {classifyWeakness,transitionMonitor,buildWeakness,smallMarkers,recentMarkers} from './monitor.mjs';
 import {applyWatchCommand,listWatches,processCommands,fetchTelegramUpdates,watchPrefix} from './watchlist.mjs';
 import {processWatch} from './watch-runner.mjs';
 import {scanMarkets} from './scan.mjs';
@@ -104,4 +104,27 @@ test('lateral quiet bars do not rearm alerts without a recovered directional imp
  for(let i=0;i<10;i++)state=transitionMonitor(state,{level:0,recovered:false}).next;
  assert.deepEqual(state,before);
  assert.equal(transitionMonitor(state,{level:1,recovered:false}).notify,false);
+});
+
+test('two contrary visual marks warn without divergence or price break; one alone does not',()=>{
+ const mark={kind:'rsi',label:'círculo RSI',idx:2,barsAgo:0};
+ assert.equal(classifyWeakness({side:'long',marks:[mark]}).level,0);
+ const two=[mark,{...mark,kind:'turn',label:'rombo momentum'}];
+ const warning=classifyWeakness({side:'long',marks:two});assert.equal(warning.level,1);assert.match(warning.evidence[0],/2 marcas rojas/);
+ assert.match(classifyWeakness({side:'short',marks:two}).evidence[0],/verdes/);
+ assert.equal(classifyWeakness({side:'long',marks:two,priceBreak:true}).level,1);
+ assert.equal(classifyWeakness({side:'long',marks:two,priceBreak:true,momentum:true}).level,2);
+});
+test('marker events match Pine, use only three closed bars, and do not repeat sustained RSI readings',()=>{
+ const val=[1,3,2,1,-1,-2,-1],sqz=[false,false,false,false,true,false,false],rsi=[75,75,65,64,63,62,61];
+ const marks=smallMarkers(val,sqz,rsi);
+ assert.deepEqual(marks.bear[2].map(m=>m.kind),['rsi','turn']);
+ assert.equal(marks.bear[3].length,0);
+ assert.equal(recentMarkers(marks.bear,4).length,2);
+ assert.deepEqual(recentMarkers(marks.bear,5).map(m=>m.kind),['release']);
+ assert.deepEqual(marks.bull[6].map(m=>m.kind),['turn']);
+ for(let n=1;n<=val.length;n++){
+  const part=smallMarkers(val.slice(0,n),sqz.slice(0,n),rsi.slice(0,n));
+  for(const side of ['bull','bear'])assert.deepEqual(part[side],marks[side].slice(0,n));
+ }
 });

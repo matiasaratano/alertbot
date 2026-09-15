@@ -25,12 +25,12 @@ Si ya existe un webhook o hay otro proceso leyendo getUpdates, se registra el er
 
 | Aviso | Condición |
 | --- | --- |
-| 🟡 DEBILITAMIENTO · LONG/SHORT | Divergencia contraria reciente, o momentum debilitándose durante dos cierres junto con un evento RSI contrario reciente. |
+| 🟡 DEBILITAMIENTO · LONG/SHORT | Dos o más marcas contrarias en las últimas tres velas cerradas; o divergencia contraria reciente; o momentum debilitándose durante dos cierres junto con un evento RSI contrario reciente. |
 | 🔴 ESTRUCTURA CEDIÓ · LONG/SHORT | Cierre rompe el extremo de las tres velas anteriores contra el movimiento seguido, acompañado por debilidad de momentum, RSI o divergencia. |
 
 Para LONG se buscan cambios bajistas; para SHORT, alcistas. Eventos RSI: salida contraria de banda 30/70 o cruce contrario de 50. La vigencia de eventos/divergencias es de tres velas, con sus edades en el mensaje. Las divergencias pueden ser confirmadas o PRE; se informa cuál y las fechas de ambos extremos. El precio y RSI mostrados corresponden al cierre analizado.
 
-R y S no se cuentan repetidamente como votos. Los distintos eventos del mismo SQZ se agrupan como momentum. Una compresión o una salida de squeeze sola no significa que terminó el impulso y no genera un aviso de cierre.
+El aviso por marcas cuenta círculos RSI, rombos de giro y cuadrados de salida de squeeze, sin las letras del gráfico. Para LONG se cuentan las rojas; para SHORT las verdes. Cada evento se cuenta una sola vez en su vela; dos tipos distintos en una misma vela pueden completar el umbral. La ventana son la vela actual cerrada y las dos anteriores. El mensaje detalla tipos y antigüedad. Dos marcas son una advertencia visual, no dos pruebas independientes de reversión. Una sola marca no activa esta regla, aunque pueden activarse las otras condiciones de debilitamiento. Una compresión o una salida de squeeze sola no significa que terminó el impulso y no genera un aviso de cierre.
 
 Cada episodio puede avisar una vez por debilitamiento y otra al escalar a pérdida de estructura. Puede comenzar directamente en el nivel rojo. La escalada no espera el cooldown de entradas. Para rearmar otro episodio se requieren dos cierres sin condición de debilidad con recuperación direccional: momentum del lado del movimiento, fortaleciéndose, RSI del lado correspondiente de 50 y precio avanzando. Las velas simplemente tranquilas de un lateral no rearman los avisos.
 
@@ -75,3 +75,5 @@ Los seguimientos y el offset de comandos se cifran con AES-256-GCM en watch-stat
 Conservar state.json y watch-state.enc. Si se rota TELEGRAM_TOKEN, el archivo previo no podrá descifrarse con el token nuevo: hay que migrarlo con la clave anterior o reiniciar conscientemente los seguimientos. Un archivo corrupto no se resetea silenciosamente. La lectura de comandos usa [getUpdates de Telegram](https://core.telegram.org/bots/api#getupdates) y guarda el offset para evitar repetirlos.
 
 Para activar: commit y push de los cambios, esperar una ejecución exitosa de Actions y escribir /ayuda al bot. No volver a pegar el Pine: sus archivos no cambiaron en esta actualización. En privado se usan los mismos token y chat_id. Se verificó con pruebas y envíos simulados; no se enviaron mensajes reales desde esta sesión. El diagnóstico antiguo de NVDA sigue pendiente del artefacto de Twelve Data.
+
+Actualización de marcas: la auditoría de volumen anterior en audit-monitor corresponde a la versión sin esta regla adicional de agrupación; no valida su frecuencia actual. El Pine no cambia. La implementación de este aviso está en monitor.mjs (marksMinimum=2, marksWindow=3).
