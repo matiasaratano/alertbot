@@ -9,3 +9,5 @@ node_modules/
 __pycache__/
 *.zip
 .calendar-venv/
+watch-state.enc.tmp
+.runtime-data/

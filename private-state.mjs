@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import {runtimeFile} from './runtime-paths.mjs';
 import {createHash,randomBytes,createCipheriv,createDecipheriv} from 'node:crypto';
 const privateKey=key=>key.startsWith('_watch:')||key==='_telegramUpdateOffset';
 const derive=token=>createHash('sha256').update('alertbot-watch-v1\0'+token).digest();
@@ -18,10 +19,10 @@ export function decryptWatchState(text,token) {
   return result;
  }catch{throw Error('No se pudo leer watch-state.enc. Revisar TELEGRAM_TOKEN o la integridad del archivo; no se reinicia el seguimiento automáticamente.');}
 }
-export function loadPrivateState(token,path=new URL('./watch-state.enc',import.meta.url)) {
+export function loadPrivateState(token,path=runtimeFile('watch-state.enc')) {
  try{return decryptWatchState(fs.readFileSync(path,'utf8'),token);}catch(e){if(e.code==='ENOENT')return {};throw e;}
 }
-export function createRuntimePersist(token,savePublic,path=new URL('./watch-state.enc',import.meta.url)) {
+export function createRuntimePersist(token,savePublic,path=runtimeFile('watch-state.enc')) {
  let lastPlain=fs.existsSync(path)?JSON.stringify(loadPrivateState(token,path)):undefined;
  return state=>{
   const pub={},priv={};for(const [key,value] of Object.entries(state))(privateKey(key)?priv:pub)[key]=value;

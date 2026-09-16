@@ -2,6 +2,8 @@
 
 El Pine v8 se conserva. El bot incorpora seguimiento direccional y amplía avisos de oportunidades, sin ejecutar operaciones.
 
+Para resolver demoras del cron, se incluye un modo continuo preparado para servidor: [puesta en marcha](SERVIDOR-CONTINUO.md). Sigue inactivo hasta desplegarlo.
+
 ## Uso
 
 Después de subir los cambios a GitHub, escribir al mismo bot:

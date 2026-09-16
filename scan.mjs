@@ -1,4 +1,6 @@
 import fs from 'node:fs';
+import {runtimeFile,initializeData} from './runtime-paths.mjs';
+import {acquireLock} from './runtime-lock.mjs';
 import { pathToFileURL } from 'node:url';
 import { buildSetups, selectSetups } from './setups.mjs';
 import {loadPrivateState,createRuntimePersist} from './private-state.mjs';
@@ -11,8 +13,7 @@ import { sendTelegram } from './telegram.mjs';
 import { CRYPTO_SYMBOLS, STOCK_SYMBOLS, TIMEFRAMES, SIGNALS, INDICATOR, TF_MS, HISTORY,
   ENTRY_15M_SYMBOLS, EARLY_TIMEFRAMES, SETTLEMENT_MS, maxAlertDelayMs, NOTIFICATION_COOLDOWN_BARS } from './config.mjs';
 
-const STATE_PATH = new URL('./state.json', import.meta.url);
-export function loadState(path = STATE_PATH) {
+export function loadState(path = runtimeFile('state.json')) {
   try {
     const state = JSON.parse(fs.readFileSync(path,'utf8'));
     if (!state || typeof state !== 'object' || Array.isArray(state)
@@ -20,7 +21,7 @@ export function loadState(path = STATE_PATH) {
     return state;
   } catch (error) { if (error.code==='ENOENT') return {}; throw error; }
 }
-export function saveState(state, path = STATE_PATH) {
+export function saveState(state, path = runtimeFile('state.json')) {
   const temp = new URL('./state.json.tmp',path);
   try {
     fs.writeFileSync(temp,JSON.stringify(state,null,2));
@@ -168,37 +169,38 @@ export async function scanMarkets({state,persist,send,cryptoFetch=fetchKrakenKli
   }
   return {alertsSent,checked,healthy:errors.length===0,errors};
 }
-export async function run() {
+export async function run({commandsOnly=false,lockHeld=false}={}) {
   const token=process.env.TELEGRAM_TOKEN,chat=process.env.TELEGRAM_CHAT_ID;
   const dryRun=process.argv.includes('--dry-run');
   if (!dryRun && (!token || !chat)) throw new Error('Faltan TELEGRAM_TOKEN / TELEGRAM_CHAT_ID');
   maxAlertDelayMs();
-  const lock=new URL('./scan.lock',import.meta.url);
-  let lockFd;
-  if (!dryRun) {
-    try { lockFd=fs.openSync(lock,'wx'); fs.writeFileSync(lockFd,String(process.pid)); }
-    catch (error) { if (error.code==='EEXIST') throw new Error('Ya existe scan.lock: hay otro scanner activo o quedó un bloqueo tras un corte'); throw error; }
-  }
+  if(!dryRun)initializeData();
+  const release=!dryRun&&!lockHeld?acquireLock(runtimeFile('scan.lock')):undefined;
   try {
   const state={...loadState(),...(token?loadPrivateState(token):{})};
   const persistRuntime=createRuntimePersist(token,saveState);
-  let commandError;
+  let commandError,commandsProcessed=0,updatesReceived=0;
   if(!dryRun) {
     try {
       const updates=await fetchTelegramUpdates(token,state._telegramUpdateOffset??0);
-      await processCommands({state,updates,chatId:chat,allowedUserId:process.env.TELEGRAM_ALLOWED_USER_ID,persist:persistRuntime,reply:text=>sendTelegram(token,chat,text)});
+      updatesReceived=updates.length;
+      commandsProcessed=await processCommands({state,updates,chatId:chat,allowedUserId:process.env.TELEGRAM_ALLOWED_USER_ID,persist:persistRuntime,reply:text=>sendTelegram(token,chat,text)});
     } catch(error) {
       if(error.statePersistenceFailed)throw error;
       commandError='Comandos Telegram: '+error.message;console.error(commandError);
     }
   }
+  if(!commandsOnly||updatesReceived||commandError)console.info('TELEGRAM_POLL',JSON.stringify({at:new Date().toISOString(),updatesReceived,commandsProcessed,healthy:!commandError}));
+  if(commandsOnly){if(commandError)throw Error(commandError);return {commandsProcessed,updatesReceived};}
   const result=await scanMarkets({state,persist:dryRun?()=>{}:persistRuntime,send:dryRun?async text=>console.log('[SIMULADO]',text):text=>sendTelegram(token,chat,text),stockKey:process.env.TWELVEDATA_API_KEY,extraTargets:ENTRY_15M_SYMBOLS.map(symbol=>({symbol,tf:'15m'}))});
+  Object.assign(result,{commandsProcessed,updatesReceived});
   if(commandError){result.errors.push(commandError);result.healthy=false;}
-  if (!dryRun) fs.writeFileSync(new URL('./heartbeat.json',import.meta.url),JSON.stringify({lastRun:new Date().toISOString(),...result},null,2));
+  if (!dryRun) fs.writeFileSync(runtimeFile('heartbeat.json'),JSON.stringify({lastRun:new Date().toISOString(),...result},null,2));
   if (!result.healthy) throw new Error(`${result.errors.length} chequeos fallaron; ver logs`);
   console.log(`${dryRun?'Simulación':'Listo'}: ${result.checked} chequeos, ${result.alertsSent} alertas.`);
+  return result;
   } finally {
-    if (lockFd!==undefined) { fs.closeSync(lockFd); fs.unlinkSync(lock); }
+    release?.();
   }
 }
 if (process.argv[1] && import.meta.url===pathToFileURL(process.argv[1]).href) {

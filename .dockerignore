@@ -1,0 +1,10 @@
+.git
+.env
+.env.*
+node_modules
+scan.lock
+*.tmp
+backtest
+backtest*
+audit-*
+*.png
