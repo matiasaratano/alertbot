@@ -60,7 +60,7 @@ export function processEvents(state,symbol,tf,events,now=Date.now()) {
   const known=new Set(SIGNALS.filter(signal=>Number.isFinite(state[prefix+signal])));
   for (const signal of SIGNALS) if (!known.has(signal)) state[prefix+signal]=now;
   const candidates = events.filter(ev=>known.has(ev.signal) && Number.isFinite(ev.confirmedTime)
-    && ev.confirmedTime>state[prefix+ev.signal] && ev.confirmedTime<=now && now-ev.confirmedTime<=Math.min(delay,TF_MS[tf]))
+    && ev.confirmedTime>state[prefix+ev.signal] && ev.confirmedTime<=now && now-ev.confirmedTime<=delay)
     .sort((a,b)=>a.confirmedTime-b.confirmedTime);
   const lastNotification = {};
   return candidates.filter(ev => {
@@ -113,6 +113,7 @@ export function composeMessage(symbol, tf, ev, isCrypto, now = Date.now()) {
   lines.push(`✅ Cierre: ${formatDate(ev.confirmedTime)} (ART)`);
   const delay = Math.max(0, Math.floor((now - ev.confirmedTime) / 60000));
   lines.push(`📬 Detectada ${delay} min después del cierre.`);
+  if(now-ev.confirmedTime>=15*60000)lines.push(`🕒 AVISO RECUPERADO: señal de hace ${delay} min. Precio y RSI corresponden a ese cierre, no al momento actual. Revisá el gráfico: puede haber cambiado o invalidado el movimiento.`);
   lines.push(`https://www.tradingview.com/chart/?symbol=${encodeURIComponent(tvSymbol)}&interval=${interval}`);
   return lines.join('\n');
 }

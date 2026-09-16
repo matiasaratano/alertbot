@@ -15,8 +15,9 @@ export const INDICATOR = {
 export const HISTORY = 700;
 // Margen para que el proveedor publique la vela cerrada.
 export const SETTLEMENT_MS = 60000;
+// Recuperación: tres horas entre ejecuciones más una hora de margen.
 export function maxAlertDelayMs() {
-  const minutes = Number(process.env.MAX_ALERT_DELAY_MINUTES ?? 120);
+  const minutes = Number(process.env.MAX_ALERT_DELAY_MINUTES ?? 240);
   if (!Number.isFinite(minutes) || minutes <= 0) throw new Error('MAX_ALERT_DELAY_MINUTES inválido');
   return minutes * 60000;
 }

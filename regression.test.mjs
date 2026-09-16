@@ -19,7 +19,7 @@ test('bootstrap initializes absent types and suppresses historical events',()=>{
 });
 test('expired and future events suppressed without discarding valid backlog',()=>{
  const state={};processEvents(state,'BTCUSD','1h',[],now-20000000);
- const events=[event(now-10000000),...Array.from({length:5},(_,i)=>event(now-5000+i)),event(now+1)];
+ const events=[event(now-14400001),...Array.from({length:5},(_,i)=>event(now-5000+i)),event(now+1)];
  assert.equal(processEvents(state,'BTCUSD','1h',events,now).length,5);
 });
 test('partial Telegram failure checkpoints successes and retries only unsent event',async()=>{
@@ -192,4 +192,29 @@ test('confirmed momentum requires two negative valleys or two positive peaks, ex
  assert.equal(detect('bearish',10,5).length,1);
  for(const [a,b] of [[-10,2],[1,2],[-10,0],[0,2]])assert.equal(detect('bullish',a,b).length,0);
  for(const [a,b] of [[10,-2],[-1,-2],[10,0],[0,-2]])assert.equal(detect('bearish',a,b).length,0);
+});
+
+test('three-hour catch-up accepts every timeframe up to four hours, preserving deduplication',async()=>{
+ for(const tf of ['15m','1h','4h','1d']){
+  const state={};processEvents(state,'BTCUSD',tf,[],now-6*3600000);
+  const make=age=>({kind:'setup',side:'bull',signal:'setup_bull',confirmedTime:now-age,cooldownCutoff:now-age-3600000,pivots:[],evidence:[]});
+  const valid=make(3*3600000+37*60000);
+  assert.deepEqual(processEvents(state,'BTCUSD',tf,[make(4*3600000+1),valid,make(-1)],now),[valid]);
+  await deliverEvents(state,'BTCUSD',tf,[valid],async()=>{},()=>{});
+  assert.deepEqual(processEvents(state,'BTCUSD',tf,[valid],now+1000),[]);
+ }
+});
+test('old opportunity messages explicitly describe historical price and possible invalidation',()=>{
+ const e={kind:'setup',side:'bull',confluenceSignal:true,trendOk:true,price:100,rsi:50,ema:90,evidence:[],pivots:[],confirmedTime:now-3*3600000};
+ const text=composeMessage('BTCUSD','15m',e,true,now);
+ assert.match(text,/AVISO RECUPERADO/);assert.match(text,/180 min/);assert.match(text,/no al momento actual/);
+ assert.doesNotMatch(composeMessage('BTCUSD','15m',e,true,e.confirmedTime+60000),/AVISO RECUPERADO/);
+});
+test('scanner fetches a four-hour close three hours later instead of skipping it as stale',async()=>{
+ const time=Date.parse('2026-09-16T15:10:00Z');let calls=0;
+ const result=await scanMarkets({state:{},clock:()=>time,cryptoSymbols:['BNBUSD'],stockSymbols:[],timeframes:['4h'],persist:()=>{},send:async()=>{},cryptoFetch:async()=>{
+  calls++;const end=Date.parse('2026-09-16T12:00:00Z'),close=Array.from({length:300},(_,i)=>100+i);
+  return {close,high:close.map(x=>x+1),low:close.map(x=>x-1),openTime:close.map((_,i)=>end-(300-i)*14400000),closeTime:close.map((_,i)=>end-(299-i)*14400000)};
+ }});
+ assert.equal(calls,1);assert.equal(result.checked,1);assert.equal(result.healthy,true);
 });

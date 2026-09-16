@@ -1,6 +1,6 @@
 # Bot continuo: preparación y puesta en marcha
 
-El cron de GitHub está configurado cada cinco minutos, pero en las ejecuciones revisadas del 16/09/2026 hubo inicios a las 08:22 y 12:27 ART, separados por más de cuatro horas. Ambas terminaron sin alertas; la ejecución manual de las 09:54 encontró dos. Ejecutar manualmente no cambia los filtros. Los comandos también se consultan solo durante una ejecución y caducan después de 30 minutos.
+El cron de GitHub está configurado cada cinco minutos, pero en las ejecuciones revisadas del 16/09/2026 hubo inicios a las 08:22 y 12:27 ART, separados por más de cuatro horas. Ambas terminaron sin alertas; la ejecución manual de las 09:54 encontró dos. Ejecutar manualmente no cambia los filtros. Los comandos también se consultan solo durante una ejecución y ahora caducan después de cuatro horas.
 
 GitHub advierte que las ejecuciones programadas pueden retrasarse o descartarse durante alta carga: https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule
 
@@ -8,7 +8,7 @@ GitHub advierte que las ejecuciones programadas pueden retrasarse o descartarse 
 
 `npm start` mantiene el bot encendido. Consulta comandos cada cinco segundos después de terminar el ciclo anterior. Ejecuta el análisis al inicio y vuelve a intentarlo 60 segundos después de finalizar el análisis anterior. Las tareas son secuenciales: si un proveedor demora, los comandos esperan a que termine ese análisis. No garantiza respuestas en cinco segundos ni alertas instantáneas. Las señales siguen usando velas cerradas y el margen de publicación del proveedor.
 
-Conserva los filtros, seguimientos, control de duplicados y ventanas de vigencia. Consultar más seguido permite detectar oportunidades antes de que caduquen; no genera señales nuevas ni asegura que un trade sea rentable. El indicador de TradingView no cambia.
+Conserva los filtros, seguimientos y control de duplicados. La ventana de recuperación actual es de cuatro horas. Consultar más seguido permite detectar oportunidades antes de que caduquen; no genera señales nuevas ni asegura que un trade sea rentable. El indicador de TradingView no cambia.
 
 Los logs muestran `TELEGRAM_POLL` con actualizaciones recibidas y comandos respondidos (incluidos errores de uso), `WORKER_ALIVE` aproximadamente cada minuto cuando el ciclo progresa, y `Listo: ... chequeos, ... alertas`. Las respuestas a comandos no se cuentan como alertas de mercado. `heartbeat.json` añade esos contadores al último análisis. No se envían avisos de funcionamiento a Telegram.
 

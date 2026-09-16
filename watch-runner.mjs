@@ -1,6 +1,6 @@
 import {buildWeakness,transitionMonitor} from './monitor.mjs';
 import {watchPrefix} from './watchlist.mjs';
-import {TF_MS,maxAlertDelayMs} from './config.mjs';
+import {maxAlertDelayMs} from './config.mjs';
 const date=ms=>new Date(ms).toLocaleString('es-AR',{timeZone:'America/Argentina/Buenos_Aires'});
 export function monitorMessage(watch,event,candles,now) {
  const time=candles.closeTime[event.idx],symbol=watch.symbol;
@@ -20,20 +20,34 @@ export async function processWatch({state,watch,candles,send,persist,now=Date.no
  const cursor=state[prefix+'cursor']??watch.started;
  const indices=candles.closeTime.map((t,i)=>[t,i]).filter(([t])=>t>cursor&&t<=now);
  if(!indices.length)return 0;
- // Consolidar cierres acumulados: no enviar una debilidad vieja ya recuperada.
+ // Simular los episodios en orden y consolidar en un único aviso del intervalo.
+ // La simulación no se guarda hasta que Telegram confirme el envío.
  let episode={level:state[prefix+'level']??0,clear:state[prefix+'clear']??0};
- for(const [,i] of indices){
-  // Solo un aviso entregado puede elevar el nivel persistido.
-  if(readings[i].level===0)episode=transitionMonitor(episode,readings[i]).next;
-  else episode={...episode,clear:0};
+ let candidate;
+ for(const [time,i] of indices){
+  const reading=readings[i];
+  if(reading.level===0)episode=transitionMonitor(episode,reading).next;
+  else {
+   episode={...episode,clear:0};
+   if(reading.level>episode.level&&now-time<=maxAlertDelayMs()) {
+    // Priorizar la advertencia más fuerte; la más reciente si empatan.
+    if(!candidate||reading.level>=readings[candidate.i].level)candidate={time,i};
+    episode={level:reading.level,clear:0};
+   }
+  }
  }
- const [time,i]=indices.at(-1);const freshness=Math.min(maxAlertDelayMs(),TF_MS[watch.tf]);
+ const [lastTime,lastIdx]=indices.at(-1);
  let sent=0;
- if(readings[i].level>episode.level&&now-time<=freshness){
-  await send(monitorMessage(watch,readings[i],candles,now));sent=1;
-  episode={level:readings[i].level,clear:0};
+ if(candidate){
+  const {time,i}=candidate;
+  let message=monitorMessage(watch,{...readings[i],idx:i},candles,now);
+  if(i!==lastIdx||now-time>=15*60000) {
+   const status=['sin condición de debilidad en ese cierre (no garantiza recuperación)','debilitamiento','pérdida de estructura'][readings[lastIdx].level];
+   message=`🕒 AVISO RECUPERADO DEL INTERVALO\n${message}\nÚltimo cierre revisado: ${date(lastTime)} (ART): ${status}.\nLa advertencia anterior describe lo que ocurrió; evaluá el gráfico actual antes de actuar.`;
+  }
+  await send(message);sent=1;
  }
- const draft={...state,[prefix+'level']:episode.level,[prefix+'clear']:episode.clear,[prefix+'cursor']:time};
+ const draft={...state,[prefix+'level']:episode.level,[prefix+'clear']:episode.clear,[prefix+'cursor']:lastTime};
  persist(draft);Object.assign(state,draft);
  return sent;
 }

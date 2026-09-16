@@ -19,7 +19,7 @@ Después de subir los cambios a GitHub, escribir al mismo bot:
 
 Marcos admitidos: 15m, 1h, 4h y 1d. Activos: BTCUSD, ETHUSD, SOLUSD, BNBUSD, AAPL, MSFT, NVDA, MELI, GOOGL, AMZN y META. El precio crypto es Kraken USD, no un futuro USDT. Acciones: Twelve Data, sesión regular. Un seguimiento por activo/marco, máximo ocho simultáneos. Cambiar long por short reinicia su estado. Repetir el mismo comando no lo reinicia; para una operación nueva en idéntica dirección usar /dejar y /seguir. Continúa hasta que lo quites.
 
-El bot responde en su próxima ejecución. En chat privado solo acepta comandos del propietario de TELEGRAM_CHAT_ID. En grupos requiere configurar el secret TELEGRAM_ALLOWED_USER_ID con el ID del usuario autorizado. No acepta órdenes de otros chats, bots ni miembros no autorizados. Comandos con más de 30 minutos se rechazan para evitar reactivar un seguimiento viejo después de una interrupción.
+El bot responde en su próxima ejecución. En chat privado solo acepta comandos del propietario de TELEGRAM_CHAT_ID. En grupos requiere configurar el secret TELEGRAM_ALLOWED_USER_ID con el ID del usuario autorizado. No acepta órdenes de otros chats, bots ni miembros no autorizados. Los comandos esperan hasta cuatro horas (MAX_ALERT_DELAY_MINUTES, por defecto 240). Si se procesan con al menos 15 minutos de demora se indica en la respuesta. Un seguimiento nuevo comienza al procesarlo, no retroactivamente; comandos más antiguos se rechazan.
 
 Si ya existe un webhook o hay otro proceso leyendo getUpdates, se registra el error sin eliminar ni cambiar esa integración. En este caso revisar qué proceso usa el bot antes de activar el lector nuevo.
 
@@ -36,7 +36,7 @@ El aviso por marcas cuenta círculos RSI, rombos de giro y cuadrados de salida d
 
 Cada episodio puede avisar una vez por debilitamiento y otra al escalar a pérdida de estructura. Puede comenzar directamente en el nivel rojo. La escalada no espera el cooldown de entradas. Para rearmar otro episodio se requieren dos cierres sin condición de debilidad con recuperación direccional: momentum del lado del movimiento, fortaleciéndose, RSI del lado correspondiente de 50 y precio avanzando. Las velas simplemente tranquilas de un lateral no rearman los avisos.
 
-Si el scanner acumuló varias velas, consolida el estado al último cierre: no manda una alarma vieja que ya desapareció. Los estados suben de nivel después del envío exitoso. Una respuesta perdida de Telegram o un fallo de persistencia remota aún puede ocasionar un duplicado; no existe garantía de entrega exactamente una vez.
+Si el scanner acumuló varias velas, recupera advertencias de las últimas cuatro horas. Envía como máximo un aviso por seguimiento y ejecución, priorizando la pérdida de estructura sobre la debilidad y el evento más reciente si empatan. Si la advertencia ya no aparece en el último cierre, se comunica como histórica junto con el estado de ese último cierre. La ausencia de debilidad no garantiza recuperación. Los episodios y el cursor se guardan después del envío exitoso. Una respuesta perdida de Telegram o un fallo de persistencia remota aún puede ocasionar un duplicado; no existe garantía de entrega exactamente una vez.
 
 Durante el seguimiento se silencian oportunidades/PRE generales del mismo activo y marco para no recibir a la vez una advertencia de gestión y una entrada. Las oportunidades de otros activos/marcos continúan.
 
@@ -79,3 +79,11 @@ Conservar state.json y watch-state.enc. Si se rota TELEGRAM_TOKEN, el archivo pr
 Para activar: commit y push de los cambios, esperar una ejecución exitosa de Actions y escribir /ayuda al bot. No volver a pegar el Pine: sus archivos no cambiaron en esta actualización. En privado se usan los mismos token y chat_id. Se verificó con pruebas y envíos simulados; no se enviaron mensajes reales desde esta sesión. El diagnóstico antiguo de NVDA sigue pendiente del artefacto de Twelve Data.
 
 Actualización de marcas: la auditoría de volumen anterior en audit-monitor corresponde a la versión sin esta regla adicional de agrupación; no valida su frecuencia actual. El Pine no cambia. La implementación de este aviso está en monitor.mjs (marksMinimum=2, marksWindow=3).
+
+## Ejecuciones cada tres horas
+
+La vigencia de notificaciones es de cuatro horas para todos los marcos (15m, 1h, 4h y diario), configurada en MAX_ALERT_DELAY_MINUTES=240 tanto por defecto como en el workflow. Se elimina el límite adicional de una sola vela que descartaba avisos de marcos cortos. La frecuencia del cron no cambia; este ajuste tolera los huecos observados, no garantiza puntualidad.
+
+Las oportunidades que pasan los filtros existentes se recuperan en orden de cierre; los cooldowns, referencias de divergencias ya avisadas y controles de duplicados permanecen activos. Pueden llegar oportunidades de sentidos opuestos si ocurrieron en cierres diferentes; hay que leer sus horarios. A partir de 15 minutos de demora se añade AVISO RECUPERADO, aclarando que precio y RSI corresponden al cierre histórico y que el movimiento puede haberse invalidado. Los seguimientos agrupan el intervalo en un solo aviso.
+
+No se recuperan señales anteriores al alta inicial del scanner ni avisos ya consumidos por sus cursores. Tampoco se garantiza recuperar todo si la pausa supera cuatro horas, faltan datos del proveedor o fallan los envíos. No se han cambiado los filtros del Pine ni se presentan las señales históricas como oportunidades vigentes.

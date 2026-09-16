@@ -1,4 +1,4 @@
-import {CRYPTO_SYMBOLS,STOCK_SYMBOLS} from './config.mjs';
+import {CRYPTO_SYMBOLS,STOCK_SYMBOLS,maxAlertDelayMs} from './config.mjs';
 export const WATCH_TFS=['15m','1h','4h','1d'];
 export const MAX_WATCHES=8;
 export const watchPrefix=(symbol,tf)=>`_watch:${symbol}:${tf}:`;
@@ -43,8 +43,8 @@ export async function processCommands({state,updates,chatId,allowedUserId,persis
   const privateOwner=String(m?.chat?.id)===String(chatId)&&m?.chat?.type==='private'&&String(m?.from?.id)===String(chatId);
   const allowed=String(m?.chat?.id)===String(chatId)&&(privateOwner||(allowedUserId&&String(m?.from?.id)===String(allowedUserId)));
   const draft={...state};let response=null;
-  if(allowed&&!m?.from?.is_bot&&typeof m?.text==='string'&&Number.isFinite(m.date)&&m.date*1000<=now&&now-m.date*1000<=1800000){response=applyWatchCommand(draft,m.text,now);if(response)accepted++;}
-  else if(allowed&&!m?.from?.is_bot&&m?.text?.startsWith('/')&&Number.isFinite(m.date)&&now-m.date*1000>1800000)response='Ese comando tiene más de 30 minutos y no se aplicó. Reenviá el comando para registrar el seguimiento actual.';
+  if(allowed&&!m?.from?.is_bot&&typeof m?.text==='string'&&Number.isFinite(m.date)&&m.date*1000<=now&&now-m.date*1000<=maxAlertDelayMs()){response=applyWatchCommand(draft,m.text,now);if(response){accepted++;if(now-m.date*1000>=15*60000)response+=`\n🕒 Comando recibido hace ${Math.floor((now-m.date*1000)/60000)} min; procesado ahora. Un seguimiento nuevo comienza ahora, no retroactivamente.`;}}
+  else if(allowed&&!m?.from?.is_bot&&m?.text?.startsWith('/')&&Number.isFinite(m.date)&&now-m.date*1000>maxAlertDelayMs())response=`Ese comando supera la ventana de ${maxAlertDelayMs()/60000} minutos y no se aplicó. Reenviá el comando para registrar el seguimiento actual.`;
   draft._telegramUpdateOffset=update.update_id+1;
   // Guardar el comando una sola vez. Un fallo de respuesta no deshace el seguimiento.
   persist(draft);for(const key of Object.keys(state))delete state[key];Object.assign(state,draft);

@@ -57,10 +57,10 @@ test('monitor starts from registration, persists only successful alerts, and esc
  series[2]=event(2);await processWatch({state:s,watch:w,candles:c,series,now:c.closeTime[2],persist:()=>{},send:async()=>sent++});assert.equal(sent,2);
  series[3]=event(2);await processWatch({state:s,watch:w,candles:c,series,now:c.closeTime[3],persist:()=>{},send:async()=>sent++});assert.equal(sent,2);
 });
-test('backlog is consolidated to latest state, transient danger is not sent or consumed',async()=>{
+test('backlog includes transient danger as one historical notice, without pretending it is current',async()=>{
  const s={};applyWatchCommand(s,'/seguir BTCUSD 15m long',t);const w=listWatches(s)[0],c=candles(4);let sent=0;
  const series=[event(0),event(2),event(1),event(0)];
- await processWatch({state:s,watch:w,candles:c,series,now:c.closeTime[3],persist:()=>{},send:async()=>sent++});assert.equal(sent,0);assert.equal(s['_watch:BTCUSD:15m:level'],0);
+ await processWatch({state:s,watch:w,candles:c,series,now:c.closeTime[3],persist:()=>{},send:async text=>{sent++;assert.match(text,/AVISO RECUPERADO/);assert.match(text,/sin condición de debilidad/);}});assert.equal(sent,1);assert.equal(s['_watch:BTCUSD:15m:level'],2);
 });
 test('weakness calculation is causal and symmetric under mirrored prices',()=>{
  const close=Array.from({length:500},(_,i)=>100+10*Math.sin(i/8)+(i%97)*.05);
@@ -127,4 +127,29 @@ test('marker events match Pine, use only three closed bars, and do not repeat su
   const part=smallMarkers(val.slice(0,n),sqz.slice(0,n),rsi.slice(0,n));
   for(const side of ['bull','bear'])assert.deepEqual(part[side],marks[side].slice(0,n));
  }
+});
+
+test('three-hour backlog warns once about recovered weakness and rearms after two recovery closes',async()=>{
+ const s={};applyWatchCommand(s,'/seguir BTCUSD 15m long',t);const w=listWatches(s)[0],c=candles(13);
+ const series=Array.from({length:13},(_,i)=>({...event(i===1?2:0),idx:i})),messages=[];
+ const args={state:s,watch:w,candles:c,series,now:c.closeTime[12],persist:()=>{},send:async m=>messages.push(m)};
+ await processWatch(args);assert.equal(messages.length,1);assert.match(messages[0],/165 min/);assert.match(messages[0],/sin condición de debilidad/);
+ assert.equal(s[watchPrefix('BTCUSD','15m')+'level'],0);
+ await processWatch(args);assert.equal(messages.length,1);
+});
+test('historical monitor send failure preserves cursor and can retry; expired warnings stay silent',async()=>{
+ const s={};applyWatchCommand(s,'/seguir BTCUSD 15m long',t);const w=listWatches(s)[0],c=candles(20);
+ const series=Array.from({length:20},(_,i)=>({...event(i===2?2:0),idx:i}));
+ const args={state:s,watch:w,candles:c,series,persist:()=>{}};
+ const before={...s};await assert.rejects(processWatch({...args,now:t+3*3600000,send:async()=>{throw Error('offline');}}));assert.deepEqual(s,before);
+ let sent=0;await processWatch({...args,now:t+3*3600000,send:async()=>sent++});assert.equal(sent,1);
+ const expired={};applyWatchCommand(expired,'/seguir BTCUSD 15m long',t);
+ await processWatch({...args,state:expired,now:c.closeTime[19],send:async()=>sent++});assert.equal(sent,1);
+});
+test('commands wait through three-hour schedule, expire after four hours, and register from processing time',async()=>{
+ const s={},replies=[];
+ const make=(id,age)=>({update_id:id,message:{chat:{id:7,type:'private'},from:{id:7},date:(t-age)/1000,text:'/seguir BTCUSD 15m long'}});
+ const args={state:s,chatId:7,persist:()=>{},reply:async m=>replies.push(m),now:t};
+ await processCommands({...args,updates:[make(1,3*3600000)]});assert.equal(listWatches(s).length,1);assert.equal(listWatches(s)[0].started,t);assert.match(replies[0],/180 min/);
+ await processCommands({...args,updates:[make(2,4*3600000+1000)]});assert.match(replies[1],/no se aplicó/);
 });
