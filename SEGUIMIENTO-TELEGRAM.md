@@ -9,15 +9,15 @@ Para resolver demoras del cron, se incluye un modo continuo preparado para servi
 Después de subir los cambios a GitHub, escribir al mismo bot:
 
 ```text
-/seguir BTCUSD 15m long
+/seguir BTCUSD 1h long
 /seguir NVDA 1h short
 /posiciones
-/dejar BTCUSD 15m
+/dejar BTCUSD 1h
 ```
 
 `/seguir` registra desde ese momento qué movimiento vigilar. No abre una orden, no conoce el precio de entrada ni consulta un broker. `/dejar` detiene el seguimiento; no cierra la operación. `/posiciones` lista seguimientos declarados, no posiciones reales. También están disponibles `/seguimientos`, `/ayuda` y `/start`. No hace falta configurar un menú en BotFather para que funcionen.
 
-Marcos admitidos: 15m, 1h, 4h y 1d. Activos: BTCUSD, ETHUSD, SOLUSD, BNBUSD, AAPL, MSFT, NVDA, MELI, GOOGL, AMZN y META. El precio crypto es Kraken USD, no un futuro USDT. Acciones: Twelve Data, sesión regular. Un seguimiento por activo/marco, máximo ocho simultáneos. Cambiar long por short reinicia su estado. Repetir el mismo comando no lo reinicia; para una operación nueva en idéntica dirección usar /dejar y /seguir. Continúa hasta que lo quites.
+Marcos admitidos: 1h, 4h y 1d. Activos: BTCUSD, ETHUSD, SOLUSD, BNBUSD, AAPL, MSFT, NVDA, MELI, GOOGL, AMZN y META. El precio crypto es Kraken USD, no un futuro USDT. Acciones: Twelve Data, sesión regular. Un seguimiento por activo/marco, máximo ocho simultáneos. Cambiar long por short reinicia su estado. Repetir el mismo comando no lo reinicia; para una operación nueva en idéntica dirección usar /dejar y /seguir. Continúa hasta que lo quites.
 
 El bot responde en su próxima ejecución. En chat privado solo acepta comandos del propietario de TELEGRAM_CHAT_ID. En grupos requiere configurar el secret TELEGRAM_ALLOWED_USER_ID con el ID del usuario autorizado. No acepta órdenes de otros chats, bots ni miembros no autorizados. Los comandos esperan hasta cuatro horas (MAX_ALERT_DELAY_MINUTES, por defecto 240). Si se procesan con al menos 15 minutos de demora se indica en la respuesta. Un seguimiento nuevo comienza al procesarlo, no retroactivamente; comandos más antiguos se rechazan.
 
@@ -42,7 +42,7 @@ Durante el seguimiento se silencian oportunidades/PRE generales del mismo activo
 
 ## Oportunidades nuevas
 
-- Se añaden BTCUSD y ETHUSD en 15m, configurables en ENTRY_15M_SYMBOLS de config.mjs.
+- Las oportunidades y seguimientos de Telegram se habilitan desde 1h. No se envían avisos de 15m.
 - Se conservan los activos habituales en 1h, 4h y diario.
 - Se elimina el veto adicional que en 1h exigía divergencia: un setup RSI que satisfaga precio y momentum del Pine v8 también puede avisar.
 - Mensaje: POSIBLE LONG / POSIBLE SHORT. No significa que se estimó una probabilidad.
@@ -82,8 +82,12 @@ Actualización de marcas: la auditoría de volumen anterior en audit-monitor cor
 
 ## Ejecuciones cada tres horas
 
-La vigencia de notificaciones es de cuatro horas para todos los marcos (15m, 1h, 4h y diario), configurada en MAX_ALERT_DELAY_MINUTES=240 tanto por defecto como en el workflow. Se elimina el límite adicional de una sola vela que descartaba avisos de marcos cortos. La frecuencia del cron no cambia; este ajuste tolera los huecos observados, no garantiza puntualidad.
+La vigencia de notificaciones es de cuatro horas para todos los marcos (1h, 4h y diario), configurada en MAX_ALERT_DELAY_MINUTES=240 tanto por defecto como en el workflow. Se elimina el límite adicional de una sola vela que descartaba avisos de marcos cortos. La frecuencia del cron no cambia; este ajuste tolera los huecos observados, no garantiza puntualidad.
 
 Las oportunidades que pasan los filtros existentes se recuperan en orden de cierre; los cooldowns, referencias de divergencias ya avisadas y controles de duplicados permanecen activos. Pueden llegar oportunidades de sentidos opuestos si ocurrieron en cierres diferentes; hay que leer sus horarios. A partir de 15 minutos de demora se añade AVISO RECUPERADO, aclarando que precio y RSI corresponden al cierre histórico y que el movimiento puede haberse invalidado. Los seguimientos agrupan el intervalo en un solo aviso.
 
 No se recuperan señales anteriores al alta inicial del scanner ni avisos ya consumidos por sus cursores. Tampoco se garantiza recuperar todo si la pausa supera cuatro horas, faltan datos del proveedor o fallan los envíos. No se han cambiado los filtros del Pine ni se presentan las señales históricas como oportunidades vigentes.
+
+## Retiro de 15m
+
+Los seguimientos antiguos de 15m quedan inactivos automáticamente: no se consultan ni aparecen en /posiciones. No se convierten en seguimientos de 1h. Podés borrar su registro con /dejar BTCUSD 15m y registrar uno nuevo con /seguir BTCUSD 1h long. El Pine no cambia.

@@ -22,16 +22,16 @@ test('episode warns once, escalates immediately, rearms only after two recovered
  assert.deepEqual(flags,[true,false,true,false,false,false,false,false,true]);
 });
 test('watch commands validate universe, side, arity, are idempotent and remove all watch state',()=>{
- const s={};applyWatchCommand(s,'/seguir BTCUSD 15m long',t);assert.equal(listWatches(s).length,1);
- applyWatchCommand(s,'/seguir BTCUSD 15m long',t+100);assert.equal(s['_watch:BTCUSD:15m:started'],t);
- applyWatchCommand(s,'/seguir BTCUSD 15m short',t+200);assert.equal(listWatches(s)[0].side,'short');
+ const s={};applyWatchCommand(s,'/seguir BTCUSD 1h long',t);assert.equal(listWatches(s).length,1);
+ applyWatchCommand(s,'/seguir BTCUSD 1h long',t+100);assert.equal(s['_watch:BTCUSD:1h:started'],t);
+ applyWatchCommand(s,'/seguir BTCUSD 1h short',t+200);assert.equal(listWatches(s)[0].side,'short');
  const before={...s};applyWatchCommand(s,'/seguir BAD 5m long',t);assert.deepEqual(s,before);
  assert.match(applyWatchCommand(s,'/posiciones',t),/SHORT/);
- applyWatchCommand(s,'/dejar BTCUSD 15m',t);assert.deepEqual(s,{});
+ applyWatchCommand(s,'/dejar BTCUSD 1h',t);assert.deepEqual(s,{});
 });
 test('commands accept only configured private owner or explicit group user; offset survives replay',async()=>{
  const state={},replies=[];
- const update=(id,chat=7,from=7,type='private')=>({update_id:id,message:{chat:{id:chat,type},from:{id:from},date:t/1000,text:'/seguir BTCUSD 15m long'}});
+ const update=(id,chat=7,from=7,type='private')=>({update_id:id,message:{chat:{id:chat,type},from:{id:from},date:t/1000,text:'/seguir BTCUSD 1h long'}});
  const run=updates=>processCommands({state,updates,chatId:'7',persist:()=>{},reply:async text=>replies.push(text),now:t});
  await run([update(1,8),update(2,7,8),update(3)]);assert.equal(replies.length,1);assert.equal(listWatches(state).length,1);
  await run([update(3)]);assert.equal(replies.length,1);assert.equal(state._telegramUpdateOffset,4);
@@ -39,7 +39,7 @@ test('commands accept only configured private owner or explicit group user; offs
  await processCommands({state:group,updates:[update(6,-7,99,'group')],chatId:'-7',allowedUserId:'99',persist:()=>{},reply:async()=>{},now:t});assert.equal(listWatches(group).length,1);
 });
 test('command persistence failure cannot consume offset; reply failure cannot undo applied command',async()=>{
- const state={},updates=[{update_id:1,message:{chat:{id:7,type:'private'},from:{id:7},date:t/1000,text:'/seguir BTCUSD 15m long'}}];
+ const state={},updates=[{update_id:1,message:{chat:{id:7,type:'private'},from:{id:7},date:t/1000,text:'/seguir BTCUSD 1h long'}}];
  await assert.rejects(processCommands({state,updates,chatId:7,persist:()=>{throw Error('disk')},reply:async()=>{},now:t}));assert.deepEqual(state,{});
  await assert.rejects(processCommands({state,updates,chatId:7,persist:()=>{},reply:async()=>{throw Error('network')},now:t}));assert.equal(listWatches(state).length,1);assert.equal(state._telegramUpdateOffset,2);
 });
@@ -49,18 +49,18 @@ test('getUpdates propagates safe errors, supplies offset, and never changes webh
  assert.match(captured.url,/getUpdates$/);assert.equal(captured.body.offset,42);assert.equal(captured.body.timeout,0);
 });
 test('monitor starts from registration, persists only successful alerts, and escalates without entry cooldown',async()=>{
- const s={};applyWatchCommand(s,'/seguir BTCUSD 15m long',t);const w=listWatches(s)[0],c=candles();let sent=0;
+ const s={};applyWatchCommand(s,'/seguir BTCUSD 1h long',t);const w=listWatches(s)[0],c=candles();let sent=0;
  const series=Array.from({length:10},()=>event(1));
  await assert.rejects(processWatch({state:s,watch:w,candles:c,series,now:c.closeTime[1],persist:()=>{},send:async()=>{throw Error('offline')}}));
- assert.equal(s['_watch:BTCUSD:15m:cursor'],t);
+ assert.equal(s['_watch:BTCUSD:1h:cursor'],t);
  await processWatch({state:s,watch:w,candles:c,series,now:c.closeTime[1],persist:()=>{},send:async()=>sent++});assert.equal(sent,1);
  series[2]=event(2);await processWatch({state:s,watch:w,candles:c,series,now:c.closeTime[2],persist:()=>{},send:async()=>sent++});assert.equal(sent,2);
  series[3]=event(2);await processWatch({state:s,watch:w,candles:c,series,now:c.closeTime[3],persist:()=>{},send:async()=>sent++});assert.equal(sent,2);
 });
 test('backlog includes transient danger as one historical notice, without pretending it is current',async()=>{
- const s={};applyWatchCommand(s,'/seguir BTCUSD 15m long',t);const w=listWatches(s)[0],c=candles(4);let sent=0;
+ const s={};applyWatchCommand(s,'/seguir BTCUSD 1h long',t);const w=listWatches(s)[0],c=candles(4);let sent=0;
  const series=[event(0),event(2),event(1),event(0)];
- await processWatch({state:s,watch:w,candles:c,series,now:c.closeTime[3],persist:()=>{},send:async text=>{sent++;assert.match(text,/AVISO RECUPERADO/);assert.match(text,/sin condición de debilidad/);}});assert.equal(sent,1);assert.equal(s['_watch:BTCUSD:15m:level'],2);
+ await processWatch({state:s,watch:w,candles:c,series,now:c.closeTime[3],persist:()=>{},send:async text=>{sent++;assert.match(text,/AVISO RECUPERADO/);assert.match(text,/sin condición de debilidad/);}});assert.equal(sent,1);assert.equal(s['_watch:BTCUSD:1h:level'],2);
 });
 test('weakness calculation is causal and symmetric under mirrored prices',()=>{
  const close=Array.from({length:500},(_,i)=>100+10*Math.sin(i/8)+(i%97)*.05);
@@ -73,28 +73,28 @@ test('weakness calculation is causal and symmetric under mirrored prices',()=>{
  const mirrored=buildWeakness({close:close.map(x=>200-x),high:c.low.map(x=>200-x),low:c.high.map(x=>200-x)});
  assert.deepEqual(mirrored.short.map(e=>e.level),all.long.map(e=>e.level));
 });
-test('scanner consults active 15m watch first and reuses data for opportunity target',async()=>{
- const now=Date.parse('2026-09-15T15:02:00Z'),state={};applyWatchCommand(state,'/seguir ETHUSD 15m short',now-10000000);
+test('scanner consults active 1h watch first and reuses data for opportunity target',async()=>{
+ const now=Date.parse('2026-09-15T15:02:00Z'),state={};applyWatchCommand(state,'/seguir ETHUSD 1h short',now-10000000);
  const calls=[],fetch=async(symbol,tf)=>{
-  calls.push([symbol,tf]);const duration=tf==='15m'?900000:3600000,end=Math.floor((now-60000)/duration)*duration;
+  calls.push([symbol,tf]);const duration=tf==='1h'?900000:3600000,end=Math.floor((now-60000)/duration)*duration;
   const close=Array.from({length:300},(_,i)=>100+i*.1);
   return {close,high:close.map(x=>x+1),low:close.map(x=>x-1),openTime:close.map((_,i)=>end-(300-i)*duration),closeTime:close.map((_,i)=>end-(299-i)*duration)};
  };
- const result=await scanMarkets({state,clock:()=>now,cryptoSymbols:['BTCUSD'],stockSymbols:[],timeframes:['1h'],extraTargets:[{symbol:'ETHUSD',tf:'15m'}],cryptoFetch:fetch,persist:()=>{},send:async()=>{}});
- assert.equal(result.healthy,true);assert.deepEqual(calls,[['ETHUSD','15m'],['BTCUSD','1h']]);
+ const result=await scanMarkets({state,clock:()=>now,cryptoSymbols:['BTCUSD'],stockSymbols:[],timeframes:['1h'],extraTargets:[{symbol:'ETHUSD',tf:'1h'}],cryptoFetch:fetch,persist:()=>{},send:async()=>{}});
+ assert.equal(result.healthy,true);assert.deepEqual(calls,[['ETHUSD','1h'],['BTCUSD','1h']]);
 });
 
 test('watch persistence encrypts positions and commands separately from public scanner state',async()=>{
  const {encryptWatchState,decryptWatchState,createRuntimePersist}=await import('./private-state.mjs');
  const {mkdtempSync,readFileSync,rmSync}=await import('node:fs');const {tmpdir}=await import('node:os');const {pathToFileURL}=await import('node:url');
- const priv={'_watch:BTCUSD:15m:side':1,_telegramUpdateOffset:100};
+ const priv={'_watch:BTCUSD:1h:side':1,_telegramUpdateOffset:100};
  const encrypted=encryptWatchState(priv,'fake-test-token');assert.doesNotMatch(encrypted,/BTCUSD|telegramUpdate/);
  assert.deepEqual(decryptWatchState(encrypted,'fake-test-token'),priv);
  assert.throws(()=>decryptWatchState(encrypted,'wrong-token'),/No se pudo leer/);
  const dir=mkdtempSync(tmpdir()+'/alertbot-watch-test-');try{
   let pub;const path=pathToFileURL(dir+'/watch-state.enc');
   const persist=createRuntimePersist('fake-test-token',s=>pub=s,path);
-  persist({...priv,'v2:BTCUSD:15m:setup_bull':10});assert.deepEqual(pub,{'v2:BTCUSD:15m:setup_bull':10});
+  persist({...priv,'v2:BTCUSD:1h:setup_bull':10});assert.deepEqual(pub,{'v2:BTCUSD:1h:setup_bull':10});
   assert.deepEqual(decryptWatchState(readFileSync(path,'utf8'),'fake-test-token'),priv);
  }finally{rmSync(dir,{recursive:true,force:true});}
 });
@@ -130,26 +130,40 @@ test('marker events match Pine, use only three closed bars, and do not repeat su
 });
 
 test('three-hour backlog warns once about recovered weakness and rearms after two recovery closes',async()=>{
- const s={};applyWatchCommand(s,'/seguir BTCUSD 15m long',t);const w=listWatches(s)[0],c=candles(13);
+ const s={};applyWatchCommand(s,'/seguir BTCUSD 1h long',t);const w=listWatches(s)[0],c=candles(13);
  const series=Array.from({length:13},(_,i)=>({...event(i===1?2:0),idx:i})),messages=[];
  const args={state:s,watch:w,candles:c,series,now:c.closeTime[12],persist:()=>{},send:async m=>messages.push(m)};
  await processWatch(args);assert.equal(messages.length,1);assert.match(messages[0],/165 min/);assert.match(messages[0],/sin condición de debilidad/);
- assert.equal(s[watchPrefix('BTCUSD','15m')+'level'],0);
+ assert.equal(s[watchPrefix('BTCUSD','1h')+'level'],0);
  await processWatch(args);assert.equal(messages.length,1);
 });
 test('historical monitor send failure preserves cursor and can retry; expired warnings stay silent',async()=>{
- const s={};applyWatchCommand(s,'/seguir BTCUSD 15m long',t);const w=listWatches(s)[0],c=candles(20);
+ const s={};applyWatchCommand(s,'/seguir BTCUSD 1h long',t);const w=listWatches(s)[0],c=candles(20);
  const series=Array.from({length:20},(_,i)=>({...event(i===2?2:0),idx:i}));
  const args={state:s,watch:w,candles:c,series,persist:()=>{}};
  const before={...s};await assert.rejects(processWatch({...args,now:t+3*3600000,send:async()=>{throw Error('offline');}}));assert.deepEqual(s,before);
  let sent=0;await processWatch({...args,now:t+3*3600000,send:async()=>sent++});assert.equal(sent,1);
- const expired={};applyWatchCommand(expired,'/seguir BTCUSD 15m long',t);
+ const expired={};applyWatchCommand(expired,'/seguir BTCUSD 1h long',t);
  await processWatch({...args,state:expired,now:c.closeTime[19],send:async()=>sent++});assert.equal(sent,1);
 });
 test('commands wait through three-hour schedule, expire after four hours, and register from processing time',async()=>{
  const s={},replies=[];
- const make=(id,age)=>({update_id:id,message:{chat:{id:7,type:'private'},from:{id:7},date:(t-age)/1000,text:'/seguir BTCUSD 15m long'}});
+ const make=(id,age)=>({update_id:id,message:{chat:{id:7,type:'private'},from:{id:7},date:(t-age)/1000,text:'/seguir BTCUSD 1h long'}});
  const args={state:s,chatId:7,persist:()=>{},reply:async m=>replies.push(m),now:t};
  await processCommands({...args,updates:[make(1,3*3600000)]});assert.equal(listWatches(s).length,1);assert.equal(listWatches(s)[0].started,t);assert.match(replies[0],/180 min/);
  await processCommands({...args,updates:[make(2,4*3600000+1000)]});assert.match(replies[1],/no se aplicó/);
+});
+
+test('15m watches are inactive, cannot be added and can still be removed',()=>{
+ const state={'_watch:BTCUSD:15m:side':1,'_watch:BTCUSD:15m:started':t};
+ assert.deepEqual(listWatches(state),[]);
+ assert.match(applyWatchCommand(state,'/seguir ETHUSD 15m long',t),/no disponible/);
+ assert.equal(state['_watch:ETHUSD:15m:side'],undefined);
+ applyWatchCommand(state,'/dejar BTCUSD 15m',t);assert.deepEqual(state,{});
+ applyWatchCommand(state,'/seguir BTCUSD 1h long',t);assert.equal(listWatches(state)[0].tf,'1h');
+});
+test('scanner never fetches or notifies 15m even with legacy watches and extra targets',async()=>{
+ const state={'_watch:BTCUSD:15m:side':1,'_watch:BTCUSD:15m:started':t};
+ const result=await scanMarkets({state,clock:()=>t+3600000,cryptoSymbols:['BTCUSD'],stockSymbols:[],timeframes:['15m'],extraTargets:[{symbol:'ETHUSD',tf:'15m'}],persist:()=>{},cryptoFetch:async()=>{assert.fail('15m must not be fetched');},send:async()=>{assert.fail('15m must not notify');}});
+ assert.equal(result.checked,0);assert.equal(result.alertsSent,0);assert.equal(result.healthy,true);
 });

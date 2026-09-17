@@ -11,7 +11,7 @@ import { fetchKrakenKlines, fetchTwelveDataSeries } from './data-sources.mjs';
 import { latestStockClose } from './market-calendar.mjs';
 import { sendTelegram } from './telegram.mjs';
 import { CRYPTO_SYMBOLS, STOCK_SYMBOLS, TIMEFRAMES, SIGNALS, INDICATOR, TF_MS, HISTORY,
-  ENTRY_15M_SYMBOLS, EARLY_TIMEFRAMES, SETTLEMENT_MS, maxAlertDelayMs, NOTIFICATION_COOLDOWN_BARS } from './config.mjs';
+  EARLY_TIMEFRAMES, SETTLEMENT_MS, maxAlertDelayMs, NOTIFICATION_COOLDOWN_BARS } from './config.mjs';
 
 export function loadState(path = runtimeFile('state.json')) {
   try {
@@ -123,6 +123,7 @@ export async function scanMarkets({state,persist,send,cryptoFetch=fetchKrakenKli
   const started=clock(),watches=listWatches(state);
   const targets=new Map();
   const add=(symbol,tf,opportunities)=>{
+    if(!TIMEFRAMES.includes(tf))return;
     const isCrypto=CRYPTO_SYMBOLS.includes(symbol)||cryptoSymbols.includes(symbol);
     if(!isCrypto&&!stockKey)return;
     const key=`${symbol}:${tf}`;const existing=targets.get(key);
@@ -193,7 +194,7 @@ export async function run({commandsOnly=false,lockHeld=false}={}) {
   }
   if(!commandsOnly||updatesReceived||commandError)console.info('TELEGRAM_POLL',JSON.stringify({at:new Date().toISOString(),updatesReceived,commandsProcessed,healthy:!commandError}));
   if(commandsOnly){if(commandError)throw Error(commandError);return {commandsProcessed,updatesReceived};}
-  const result=await scanMarkets({state,persist:dryRun?()=>{}:persistRuntime,send:dryRun?async text=>console.log('[SIMULADO]',text):text=>sendTelegram(token,chat,text),stockKey:process.env.TWELVEDATA_API_KEY,extraTargets:ENTRY_15M_SYMBOLS.map(symbol=>({symbol,tf:'15m'}))});
+  const result=await scanMarkets({state,persist:dryRun?()=>{}:persistRuntime,send:dryRun?async text=>console.log('[SIMULADO]',text):text=>sendTelegram(token,chat,text),stockKey:process.env.TWELVEDATA_API_KEY});
   Object.assign(result,{commandsProcessed,updatesReceived});
   if(commandError){result.errors.push(commandError);result.healthy=false;}
   if (!dryRun) fs.writeFileSync(runtimeFile('heartbeat.json'),JSON.stringify({lastRun:new Date().toISOString(),...result},null,2));

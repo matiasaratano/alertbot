@@ -32,5 +32,4 @@ export const NOTIFICATION_COOLDOWN_BARS = 8;
 
 export const EARLY_TIMEFRAMES = ['4h', '1d'];
 
-// Nuevas oportunidades 15m solo en BTC/ETH; otros activos se consultan si hay seguimiento.
-export const ENTRY_15M_SYMBOLS = ['BTCUSD','ETHUSD'];
+// Telegram habilitado desde 1h; TF_MS conserva 15m para cálculos y auditorías.
