@@ -1,9 +1,11 @@
 {
-  "lastRun": "2026-09-17T10:03:20.300Z",
-  "alertsSent": 1,
-  "checked": 10,
-  "healthy": true,
-  "errors": [],
-  "commandsProcessed": 0,
-  "updatesReceived": 0
+  "lastRun": "2026-09-17T14:57:11.320Z",
+  "alertsSent": 2,
+  "checked": 14,
+  "healthy": false,
+  "errors": [
+    "NVDA 1h: The operation was aborted due to timeout"
+  ],
+  "commandsProcessed": 1,
+  "updatesReceived": 1
 }
