@@ -1,8 +1,8 @@
 // Estos valores deben coincidir con los inputs del Pine y con el gráfico.
 export const CRYPTO_SYMBOLS = ['BTCUSD', 'ETHUSD', 'SOLUSD', 'BNBUSD'];
 export const STOCK_SYMBOLS = ['AAPL', 'MSFT', 'NVDA', 'MELI', 'GOOGL', 'AMZN', 'META'];
-export const TIMEFRAMES = ['1h', '4h', '1d'];
-export const TF_MS = { '15m': 900000, '1h': 3600000, '4h': 14400000, '1d': 86400000 };
+export const TIMEFRAMES = ['4h', '1d', '1w'];
+export const TF_MS = { '15m': 900000, '1h': 3600000, '4h': 14400000, '1d': 86400000, '1w': 604800000 };
 export const SIGNALS = ['rsi_buy', 'rsi_sell', 'div_bull', 'div_bear', 'pre_bull', 'pre_bear', 'important_bull', 'important_bear', 'early_bull', 'early_bear', 'setup_bull', 'setup_bear'];
 export const INDICATOR = {
   rsiLen: 14, buyLevel: 30, sellLevel: 70,
@@ -32,4 +32,4 @@ export const NOTIFICATION_COOLDOWN_BARS = 8;
 
 export const EARLY_TIMEFRAMES = ['4h', '1d'];
 
-// Telegram habilitado desde 1h; TF_MS conserva 15m para cálculos y auditorías.
+// Telegram v9: 4h, diario y semanal. Marcos menores solo para auditorías.

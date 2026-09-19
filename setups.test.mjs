@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {scoreSetups,buildSetups,selectSetups,SETUP_LABELS,SETUP} from './setups.mjs';
 import {INDICATOR} from './config.mjs';
-import {analyzeSymbol,processEvents,deliverEvents,composeMessage} from './scan.mjs';
+import {analyzeLegacySymbol as analyzeSymbol,processEvents,deliverEvents,composeMessage} from './scan.mjs';
 function fixture(n=15){const empty=()=>Object.fromEntries(Object.keys(SETUP_LABELS).map(k=>[k,Array(n).fill(false)]));return {close:Array(n).fill(100),high:Array(n).fill(101),low:Array(n).fill(99),momentum:Array(n).fill(0),trend:Array(n).fill(90),bull:empty(),bear:empty()};}
 test('SELL can signal above EMA200, only with setup, falling momentum and price break',()=>{
  const d=fixture();d.bear.rsi_trigger[3]=true;d.close[3]=98;d.momentum[3]=-1;

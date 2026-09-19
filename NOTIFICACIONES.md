@@ -1,3 +1,5 @@
+> **Vigente: Híbrido v9, 19/09/2026.** Telegram envía cruces RSI BUY/SELL en 4h, diario y semanal. Ver [guía actual](SEGUIMIENTO-TELEGRAM.md). El contenido que sigue documenta versiones anteriores.
+
 > Bot con seguimiento manual: ver [SEGUIMIENTO-TELEGRAM.md](SEGUIMIENTO-TELEGRAM.md). Esa guía reemplaza las reglas de notificación anteriores; el Pine v8 se conserva.
 
 # Indicador v8: oportunidades, divergencias y contexto

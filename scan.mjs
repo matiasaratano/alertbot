@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import {buildRsiSignals,initializeRsiState,pendingRsiEvents,deliverRsiEvents,rsiMessage} from './rsi-signals.mjs';
 import {runtimeFile,initializeData} from './runtime-paths.mjs';
 import {acquireLock} from './runtime-lock.mjs';
 import { pathToFileURL } from 'node:url';
@@ -8,7 +9,7 @@ import {listWatches,fetchTelegramUpdates,processCommands} from './watchlist.mjs'
 import {processWatch} from './watch-runner.mjs';
 import { buildEarly } from './early.mjs';
 import { fetchKrakenKlines, fetchTwelveDataSeries } from './data-sources.mjs';
-import { latestStockClose } from './market-calendar.mjs';
+import { latestStockClose, latestCryptoClose } from './market-calendar.mjs';
 import { sendTelegram } from './telegram.mjs';
 import { CRYPTO_SYMBOLS, STOCK_SYMBOLS, TIMEFRAMES, SIGNALS, INDICATOR, TF_MS, HISTORY,
   EARLY_TIMEFRAMES, SETTLEMENT_MS, maxAlertDelayMs, NOTIFICATION_COOLDOWN_BARS } from './config.mjs';
@@ -28,7 +29,14 @@ export function saveState(state, path = runtimeFile('state.json')) {
     fs.renameSync(temp,path);
   } catch (error) { error.statePersistenceFailed = true; throw error; }
 }
-export function analyzeSymbol(symbol, tf, candles) {
+export function analyzeSymbol(symbol,tf,candles) {
+ if(!TIMEFRAMES.includes(tf))throw Error(`Temporalidad de Telegram no habilitada: ${tf}`);
+ const n=candles.close.length;
+ if(n<INDICATOR.rsiLen+2)throw Error('Historial insuficiente para un cruce RSI');
+ if([candles.openTime,candles.closeTime,candles.high,candles.low].some(a=>!a||a.length!==n))throw Error('Serie desalineada o sin cierres');
+ return buildRsiSignals(candles);
+}
+export function analyzeLegacySymbol(symbol, tf, candles) {
   const { openTime, closeTime, high, low, close } = candles;
   if (!TF_MS[tf]) throw new Error(`Temporalidad no soportada: ${tf}`);
   if (close.length < 250) throw new Error(`${symbol} ${tf}: historial insuficiente para EMA200`);
@@ -93,6 +101,7 @@ const formatDate = ms=>new Date(ms).toLocaleString('es-AR',{
 });
 const escapeHtml = text => String(text).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
 export function composeMessage(symbol, tf, ev, isCrypto, now = Date.now()) {
+  if(ev.kind==='rsi')return rsiMessage(symbol,tf,ev,isCrypto,now);
   const tvSymbol = isCrypto ? `KRAKEN:${symbol}` : `NASDAQ:${symbol}`;
   const interval = { '15m':'15', '1h':'60', '4h':'240', '1d':'D' }[tf];
   const direction = ev.side === 'bull' ? 'ALCISTA' : 'BAJISTA';
@@ -134,31 +143,29 @@ export async function scanMarkets({state,persist,send,cryptoFetch=fetchKrakenKli
   for(const w of watches)add(w.symbol,w.tf,false);
   // Seguimientos primero, y luego marcos cortos, para reducir demora propia.
   const ordered=[...targets.values()].sort((a,b)=>Number(Boolean(b.watch))-Number(Boolean(a.watch))||TF_MS[a.tf]-TF_MS[b.tf]);
-  for(const t of ordered)if(t.opportunities)processEvents(state,t.symbol,t.tf,[],started);
+  for(const t of ordered)if(t.opportunities)initializeRsiState(state,t.symbol,t.tf,started);
   persist(state);
   for(const {symbol,tf,isCrypto,opportunities,watch} of ordered) {
         try {
           const now=clock();
-          const target=isCrypto ? Math.floor((now-SETTLEMENT_MS)/TF_MS[tf])*TF_MS[tf] : latestStockClose(tf,now);
+          const target=isCrypto ? latestCryptoClose(tf,now) : latestStockClose(tf,now);
           // Los cierres antiguos (por ejemplo fin de semana) no requieren requests.
           if (now-target>maxAlertDelayMs()) continue;
-          const checkKey=`_checkedClose:${symbol}:${tf}`;
+          const checkKey=`_checkedCloseV9:${symbol}:${tf}`;
           const watchDue=watch&&(state[`_watch:${symbol}:${tf}:cursor`]??0)<target;
           if ((state[checkKey] ?? 0)>=target&&!watchDue) continue;
           const candles=isCrypto ? await cryptoFetch(symbol,tf,HISTORY) : await stockFetch(symbol,tf,stockKey,HISTORY);
           if (!candles.closeTime?.length) throw new Error('Sin velas cerradas');
-          if(candles.close.length<250)throw new Error('Historial insuficiente: se requieren 250 velas cerradas');
+          if(candles.close.length<INDICATOR.rsiLen+2)throw new Error('Historial insuficiente para RSI');
           const actual=candles.closeTime.at(-1);
           // Si el proveedor está atrasado, no avanzar target: se reintenta en el próximo tick.
           const events=opportunities?analyzeSymbol(symbol,tf,candles):[];
           if(watch&&actual>=target)alertsSent+=await processWatch({state,watch,candles,send,persist,now:clock()});
-          // El seguimiento ya indica qué revisar: no superponer una entrada en
-          // el mismo activo/marco mientras el usuario lo sigue.
-          if(watch)for(const side of ['bull','bear'])for(const type of ['setup','early'])state[`v2:${symbol}:${tf}:${type}_${side}`]=actual;
-          const accepted=watch?[]:processEvents(state,symbol,tf,events,clock());
+          // Un seguimiento no silencia los BUY/SELL del Pine v9.
+          const accepted=pendingRsiEvents(state,symbol,tf,events,clock());
           persist(state);
-          await deliverEvents(state,symbol,tf,accepted,async ev=>{
-            console.info('SIGNAL_AUDIT', JSON.stringify({symbol,tf,parameters:INDICATOR,event:ev}));
+          await deliverRsiEvents(state,symbol,tf,accepted,async ev=>{
+            console.info('SIGNAL_AUDIT', JSON.stringify({symbol,tf,strategy:'hybrid-v9-rsi',parameters:{rsiLen:INDICATOR.rsiLen,buyLevel:INDICATOR.buyLevel,sellLevel:INDICATOR.sellLevel},event:ev}));
             await send(composeMessage(symbol,tf,ev,isCrypto,clock())); alertsSent++;
           },persist);
           if (actual<target) throw new Error(`Proveedor atrasado: último cierre ${new Date(actual).toISOString()}, esperado ${new Date(target).toISOString()}`);

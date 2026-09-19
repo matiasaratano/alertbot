@@ -3,10 +3,10 @@ export const WATCH_TFS=TIMEFRAMES;
 export const MAX_WATCHES=8;
 export const watchPrefix=(symbol,tf)=>`_watch:${symbol}:${tf}:`;
 export function listWatches(state) {
- return Object.entries(state).filter(([key,value])=>/^_watch:[A-Z]+:(1h|4h|1d):side$/.test(key)&&(value===1||value===-1))
+ return Object.entries(state).filter(([key,value])=>/^_watch:[A-Z]+:(4h|1d|1w):side$/.test(key)&&(value===1||value===-1))
  .map(([key,value])=>{const [,symbol,tf]=key.split(':');return {symbol,tf,side:value===1?'long':'short',started:state[watchPrefix(symbol,tf)+'started']};});
 }
-const help='Comandos (solo seguimiento, no ejecutan operaciones):\n/seguir BTCUSD 1h long\n/seguir NVDA 1h short\n/dejar BTCUSD 1h\n/posiciones\nMarcos: 1h, 4h, 1d. Una dirección por activo y marco. Respondo en la próxima ejecución del scanner.';
+const help='Comandos (solo seguimiento, no ejecutan operaciones):\n/seguir BTCUSD 4h long\n/seguir NVDA 4h short\n/dejar BTCUSD 4h\n/posiciones\nMarcos: 4h, 1d, 1w. Una dirección por activo y marco. Respondo en la próxima ejecución del scanner.';
 export function applyWatchCommand(state,text,now=Date.now()) {
  const args=text.trim().split(/\s+/);const command=args.shift()?.split('@')[0].toLowerCase();
  if(['/start','/ayuda','/help'].includes(command))return help;
@@ -15,14 +15,14 @@ export function applyWatchCommand(state,text,now=Date.now()) {
  }
  if(!['/seguir','/dejar'].includes(command))return text.startsWith('/')?help:null;
  const symbol=args[0]?.toUpperCase();const tf=args[1]?.toLowerCase();
- if(![...CRYPTO_SYMBOLS,...STOCK_SYMBOLS].includes(symbol)||!(WATCH_TFS.includes(tf)||(command==='/dejar'&&tf==='15m')))return 'Activo o marco no disponible. Activos: '+[...CRYPTO_SYMBOLS,...STOCK_SYMBOLS].join(', ')+'\n'+help;
+ if(![...CRYPTO_SYMBOLS,...STOCK_SYMBOLS].includes(symbol)||!(WATCH_TFS.includes(tf)||(command==='/dejar'&&['15m','1h'].includes(tf))))return 'Activo o marco no disponible. Activos: '+[...CRYPTO_SYMBOLS,...STOCK_SYMBOLS].join(', ')+'\n'+help;
  const prefix=watchPrefix(symbol,tf);
  if(command==='/dejar'){
-  if(args.length!==2)return 'Uso: /dejar BTCUSD 1h';
+  if(args.length!==2)return 'Uso: /dejar BTCUSD 4h';
   for(const key of Object.keys(state))if(key.startsWith(prefix))delete state[key];
   return `Seguimiento desactivado: ${symbol} ${tf}. No se cerró ninguna operación.`;
  }
- const side=args[2]?.toLowerCase();if(args.length!==3||!['long','short'].includes(side))return 'Uso: /seguir BTCUSD 1h long (o short)';
+ const side=args[2]?.toLowerCase();if(args.length!==3||!['long','short'].includes(side))return 'Uso: /seguir BTCUSD 4h long (o short)';
  if(state[prefix+'side']===(side==='long'?1:-1))return `Ya sigo ${symbol} ${tf} ${side.toUpperCase()}. Para empezar un seguimiento nuevo, usá /dejar y después /seguir.`;
  if(!state[prefix+'side']&&listWatches(state).length>=MAX_WATCHES)return `Máximo ${MAX_WATCHES} seguimientos. Quitá uno con /dejar.`;
  for(const key of Object.keys(state))if(key.startsWith(prefix))delete state[key];

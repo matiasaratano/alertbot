@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import {pendingRsiEvents} from './rsi-signals.mjs';
 import { processEvents,deliverEvents,scanMarkets,analyzeSymbol,loadState,saveState,composeMessage } from './scan.mjs';
 import { normalizeCandles,fetchKrakenKlines } from './data-sources.mjs';
 import { sessionForDate,stockBarTimes,latestStockClose } from './market-calendar.mjs';
@@ -108,16 +109,16 @@ test('scanner skips successful close but retries stale provider on next tick',as
  const options={state,persist:()=>{},send:async()=>{},stockKey:'test',cryptoSymbols:[],stockSymbols:['AAPL'],timeframes:['1d'],clock:()=>now,
  stockFetch:async()=>{requests++;return fixture(Date.parse('2026-09-10T20:00:00Z'));}};
  assert.equal((await scanMarkets(options)).healthy,false);
- assert.equal(state['_checkedClose:AAPL:1d'],undefined);
+ assert.equal(state['_checkedCloseV9:AAPL:1d'],undefined);
  options.stockFetch=async()=>{requests++;return fixture();};
  assert.equal((await scanMarkets(options)).healthy,true);
  await scanMarkets(options);assert.equal(requests,2);
 });
 test('scanner catches one provider error without losing independent symbols',async()=>{
- const state={};const result=await scanMarkets({state,persist:()=>{},send:async()=>{},cryptoSymbols:['BAD','BTCUSD'],stockSymbols:[],timeframes:['1h'],clock:()=>now,
+ const state={};const result=await scanMarkets({state,persist:()=>{},send:async()=>{},cryptoSymbols:['BAD','BTCUSD'],stockSymbols:[],timeframes:['4h'],clock:()=>now,
  cryptoFetch:async symbol=>{if(symbol==='BAD')throw Error('offline');return fixture();}});
  assert.equal(result.errors.length,1);assert.equal(result.checked,1);
- assert.equal(state['_checkedClose:BTCUSD:1h'],Date.parse('2026-09-11T20:00:00Z'));
+ assert.equal(state['_checkedCloseV9:BTCUSD:4h'],Date.parse('2026-09-11T20:00:00Z'));
 });
 test('state corruption fails instead of resetting and atomic writes round-trip',()=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'alertbot-test-'));const file=pathToFileURL(path.join(dir,'state.json'));
@@ -142,9 +143,9 @@ test('starting outside market hours initializes future signals without requests'
  const state={};let requests=0;const weekend=Date.parse('2026-09-12T18:00:00Z');
  await scanMarkets({state,persist:()=>{},send:async()=>{},stockKey:'test',cryptoSymbols:[],stockSymbols:['AAPL'],timeframes:['1d'],clock:()=>weekend,
  stockFetch:async()=>{requests++;return fixture();}});
- assert.equal(requests,0);assert.equal(state['v2:AAPL:1d:div_bear'],weekend);
+ assert.equal(requests,0);assert.equal(state['v9:AAPL:1d:rsi_sell'],weekend-4*3600000-1);
  const mondayClose=Date.parse('2026-09-14T20:00:00Z');
- assert.equal(processEvents(state,'AAPL','1d',[event(mondayClose,'div_bear')],mondayClose+60000).length,1);
+ assert.equal(pendingRsiEvents(state,'AAPL','1d',[event(mondayClose,'rsi_sell')],mondayClose+60000).length,1);
 });
 
 

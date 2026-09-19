@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { buildConfluence, scoreConfluence, selectImportant, rsiPriceDivergences, ema, COMPONENT_LABELS } from './confluence.mjs';
-import { analyzeSymbol, composeMessage, processEvents, deliverEvents } from './scan.mjs';
+import { analyzeLegacySymbol as analyzeSymbol, composeMessage, processEvents, deliverEvents } from './scan.mjs';
 import { INDICATOR, ALERT_POLICY } from './config.mjs';
 import { heartbeatStatus } from './watchdog.mjs';
 function setup(n=30) {

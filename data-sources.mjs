@@ -1,7 +1,7 @@
 import { TF_MS, SETTLEMENT_MS } from './config.mjs';
-import { stockBarTimes } from './market-calendar.mjs';
+import { stockBarTimes, mondayDate } from './market-calendar.mjs';
 const KRAKEN_PAIR = { BTCUSD:'XBTUSD', ETHUSD:'ETHUSD', SOLUSD:'SOLUSD', BNBUSD:'BNBUSD' };
-const TWELVEDATA_INTERVAL = { '15m':'15min', '1h':'1h', '4h':'4h', '1d':'1day' };
+const TWELVEDATA_INTERVAL = { '15m':'15min', '1h':'1h', '4h':'4h', '1d':'1day', '1w':'1week' };
 
 export function normalizeCandles(rows, now = Date.now()) {
   const ordered = rows.slice().sort((a,b)=>a.open-b.open);
@@ -19,6 +19,7 @@ export function normalizeCandles(rows, now = Date.now()) {
   return result;
 }
 export async function fetchKrakenKlines(symbol, tf, limit = 500) {
+  if(tf==='1w')return aggregateCryptoWeeks(await fetchKrakenKlines(symbol,'1d',720),Date.now(),limit);
   if (!TF_MS[tf]) throw new Error(`Temporalidad inválida: ${tf}`);
   const pair = KRAKEN_PAIR[symbol];
   if (!pair) throw new Error(`Par Kraken no configurado: ${symbol}`);
@@ -47,6 +48,7 @@ export async function fetchTwelveDataSeries(symbol, tf, apiKey, outputsize = 500
   const url = new URL('https://api.twelvedata.com/time_series');
   url.search = new URLSearchParams({symbol,interval,outputsize:String(outputsize),timezone:'UTC',
     apikey:apiKey,order:'ASC',prepost:'false',adjust:'splits'});
+  if(tf==='1w')url.searchParams.set('start_date','2020-01-06');
   const response = await fetch(url, {signal:AbortSignal.timeout(20000)});
   if (!response.ok) throw new Error(`Twelve Data HTTP ${response.status}`);
   const data = await response.json();
@@ -57,4 +59,21 @@ export async function fetchTwelveDataSeries(symbol, tf, apiKey, outputsize = 500
     return {open:times.open,end:times.close,high:Number(v.high),low:Number(v.low),close:Number(v.close)};
   });
   return normalizeCandles(rows);
+}
+
+// Kraken 10080 empieza los jueves. Para la semana de TradingView, agrupar
+// días UTC completos de lunes a domingo. No usar la semana actual ni parcial.
+export function aggregateCryptoWeeks(daily,now=Date.now(),limit=700) {
+ const groups=new Map();
+ daily.openTime.forEach((t,i)=>{const key=mondayDate(new Date(t).toISOString().slice(0,10));const list=groups.get(key)??[];list.push(i);groups.set(key,list);});
+ const rows=[];let first=true;
+ for(const [key,indices] of groups){
+  const open=Date.parse(key+'T00:00:00Z'),end=open+TF_MS['1w'];
+  if(end+SETTLEMENT_MS>now)continue;
+  const complete=indices.length===7&&indices.every((i,j)=>daily.openTime[i]===open+j*TF_MS['1d']&&daily.closeTime[i]===open+(j+1)*TF_MS['1d']);
+  if(!complete){if(first){first=false;continue;}throw Error(`Semana crypto incompleta: ${key}`);}
+  if(rows.length&&rows.at(-1).end!==open)throw Error(`Falta una semana crypto antes de ${key}`);
+  first=false;rows.push({open,end,high:Math.max(...indices.map(i=>daily.high[i])),low:Math.min(...indices.map(i=>daily.low[i])),close:daily.close[indices.at(-1)]});
+ }
+ return normalizeCandles(rows.slice(-limit),now);
 }

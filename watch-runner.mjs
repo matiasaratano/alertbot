@@ -11,7 +11,7 @@ export function monitorMessage(watch,event,candles,now) {
  for(const p of event.pivots)lines.push(`• ${p.name==='rsi_div'?'RSI':'Momentum'} ${p.tentative?'tentativa':'confirmada'}: ${date(candles.openTime[p.prevIdx])} → ${date(candles.openTime[p.pivotIdx])} (ART); detectada hace ${event.divergenceAge} vela(s).`);
  lines.push(event.level===2?'Revisá tu operación: el precio también cedió contra el movimiento seguido.':'Revisá el impulso: puede ser una pausa, no necesariamente una reversión.',
  `Precio: ${event.price.toFixed(2)} USD · RSI: ${event.rsi.toFixed(1)}`,`Cierre: ${date(time)} (ART) · demora: ${Math.max(0,Math.floor((now-time)/60000))} min.`,
- `https://www.tradingview.com/chart/?symbol=${encodeURIComponent(tv)}&interval=${{'15m':'15','1h':'60','4h':'240','1d':'D'}[watch.tf]}`);
+ `https://www.tradingview.com/chart/?symbol=${encodeURIComponent(tv)}&interval=${{'15m':'15','1h':'60','4h':'240','1d':'D','1w':'W'}[watch.tf]}`);
  return lines.join('\n');
 }
 export async function processWatch({state,watch,candles,send,persist,now=Date.now(),series}) {
