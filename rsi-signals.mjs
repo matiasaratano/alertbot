@@ -22,7 +22,7 @@ export async function deliverRsiEvents(state,symbol,tf,events,send,persist) {
  for(const event of events){await send(event);state[prefix(symbol,tf)+event.signal]=event.confirmedTime;persist(state);}
 }
 export function rsiMessage(symbol,tf,e,isCrypto,now) {
- const date=new Date(e.confirmedTime).toLocaleString('es-AR',{timeZone:'America/Argentina/Buenos_Aires'}),delay=Math.max(0,Math.floor((now-e.confirmedTime)/60000));
+ const date=new Date(e.confirmedTime).toLocaleString('es-AR',{timeZone:'America/Argentina/Buenos_Aires',hourCycle:'h23'}),delay=Math.max(0,Math.floor((now-e.confirmedTime)/60000));
  const side=e.side==='bull'?'BUY':'SELL',source=isCrypto?'Kraken USD':'Twelve Data, sesión regular';
  const text=[`${side} · RSI · Híbrido v9`,`${symbol} · ${tf} · ${source}`,
   `RSI(${INDICATOR.rsiLen}) cruzó ${side==='BUY'?'por encima':'por debajo'} de ${e.level} al cierre: ${e.previousRsi.toFixed(2)} → ${e.rsi.toFixed(2)}.`,

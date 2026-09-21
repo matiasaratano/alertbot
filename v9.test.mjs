@@ -90,3 +90,10 @@ test('weekly scanner sends at actual weekly close and links W for crypto and sto
   assert.equal(result.healthy,true);assert.equal(result.alertsSent,1);assert.match(messages[0],/BUY · RSI/);assert.match(messages[0],/interval=W/);
  }
 });
+
+
+test('MELI afternoon close renders unambiguous 24-hour ART time',()=>{
+ const e={kind:'rsi',side:'bull',signal:'rsi_buy',previousRsi:29.77807813,rsi:40.2813462,level:30,price:1826.48,confirmedTime:Date.parse('2026-09-21T17:30:00Z')};
+ const text=composeMessage('MELI','4h',e,false,Date.parse('2026-09-21T17:58:00Z'));
+ assert.match(text,/14:30:00/);assert.doesNotMatch(text,/02:30:00/);assert.match(text,/28 min/);
+});

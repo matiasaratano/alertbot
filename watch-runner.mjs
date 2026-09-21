@@ -1,7 +1,7 @@
 import {buildWeakness,transitionMonitor} from './monitor.mjs';
 import {watchPrefix} from './watchlist.mjs';
 import {maxAlertDelayMs} from './config.mjs';
-const date=ms=>new Date(ms).toLocaleString('es-AR',{timeZone:'America/Argentina/Buenos_Aires'});
+const date=ms=>new Date(ms).toLocaleString('es-AR',{timeZone:'America/Argentina/Buenos_Aires',hourCycle:'h23'});
 export function monitorMessage(watch,event,candles,now) {
  const time=candles.closeTime[event.idx],symbol=watch.symbol;
  const tv=(['BTCUSD','ETHUSD','SOLUSD','BNBUSD'].includes(symbol)?'KRAKEN:':'NASDAQ:')+symbol;

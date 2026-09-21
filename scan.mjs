@@ -97,7 +97,7 @@ export async function deliverEvents(state,symbol,tf,events,send,persist) {
   }
 }
 const formatDate = ms=>new Date(ms).toLocaleString('es-AR',{
-  timeZone:'America/Argentina/Buenos_Aires',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',
+  timeZone:'America/Argentina/Buenos_Aires',hourCycle:'h23',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',
 });
 const escapeHtml = text => String(text).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
 export function composeMessage(symbol, tf, ev, isCrypto, now = Date.now()) {
