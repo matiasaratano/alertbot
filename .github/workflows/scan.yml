@@ -2,7 +2,9 @@ name: Scan crypto & stock signals
 
 on:
   schedule:
-    - cron: "2-59/5 * * * *"
+    # Cada tres horas. La ventana de recuperación del scanner es de cuatro
+    # horas, así que puede entregar señales del intervalo anterior.
+    - cron: "7 */3 * * *"
   workflow_dispatch: {} # botón "Run workflow" manual en GitHub para probar
 
 # evita que dos corridas se pisen entre sí (una corrida lenta + el próximo
