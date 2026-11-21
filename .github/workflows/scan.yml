@@ -2,9 +2,10 @@ name: Scan crypto & stock signals
 
 on:
   schedule:
-    # Cada tres horas. La ventana de recuperación del scanner es de cuatro
-    # horas, así que puede entregar señales del intervalo anterior.
-    - cron: "7 */3 * * *"
+    # Una vez por día, 00:23 UTC (21:23 ART): después del cierre diario cripto
+    # (00:00 UTC) y del cierre de Nueva York. Las velas semanales de acciones se
+    # ven el sábado; las cripto y el resumen semanal, el lunes (domingo a la noche ART).
+    - cron: "23 0 * * *"
   workflow_dispatch: {} # botón "Run workflow" manual en GitHub para probar
 
 # evita que dos corridas se pisen entre sí (una corrida lenta + el próximo
@@ -19,7 +20,7 @@ permissions:
 jobs:
   scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -36,10 +37,8 @@ jobs:
       - name: Run scan
         id: scan
         env:
-          MAX_ALERT_DELAY_MINUTES: "240" # 3 horas entre ejecuciones + margen
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          TELEGRAM_ALLOWED_USER_ID: ${{ secrets.TELEGRAM_ALLOWED_USER_ID }}
           TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
         run: node scan.mjs
 
@@ -48,9 +47,7 @@ jobs:
         run: |
           git config user.name "alertbot"
           git config user.email "alertbot@users.noreply.github.com"
-          for file in state.json heartbeat.json watch-state.enc; do
-            if [ -f "$file" ]; then git add "$file"; fi
-          done
+          git add state.json
           if git diff --staged --quiet; then
             echo "Sin cambios de estado, nada que commitear."
             exit 0
@@ -65,5 +62,5 @@ jobs:
             git pull --rebase origin main
             sleep 3
           done
-          echo "::error::No se pudo pushear state.json/heartbeat.json después de varios intentos"
+          echo "::error::No se pudo pushear state.json después de varios intentos"
           exit 1

@@ -1,7 +1,7 @@
 import { TF_MS, SETTLEMENT_MS } from './config.mjs';
 import { stockBarTimes, mondayDate } from './market-calendar.mjs';
 const KRAKEN_PAIR = { BTCUSD:'XBTUSD', ETHUSD:'ETHUSD', SOLUSD:'SOLUSD', BNBUSD:'BNBUSD' };
-const TWELVEDATA_INTERVAL = { '15m':'15min', '1h':'1h', '4h':'4h', '1d':'1day', '1w':'1week' };
+const TWELVEDATA_INTERVAL = { '1d':'1day', '1w':'1week' };
 
 export function normalizeCandles(rows, now = Date.now()) {
   const ordered = rows.slice().sort((a,b)=>a.open-b.open);
@@ -20,7 +20,7 @@ export function normalizeCandles(rows, now = Date.now()) {
 }
 export async function fetchKrakenKlines(symbol, tf, limit = 500) {
   if(tf==='1w')return aggregateCryptoWeeks(await fetchKrakenKlines(symbol,'1d',720),Date.now(),limit);
-  if (!TF_MS[tf]) throw new Error(`Temporalidad inválida: ${tf}`);
+  if (tf !== '1d') throw new Error(`Temporalidad inválida: ${tf}`);
   const pair = KRAKEN_PAIR[symbol];
   if (!pair) throw new Error(`Par Kraken no configurado: ${symbol}`);
   const url = new URL('https://api.kraken.com/0/public/OHLC');
@@ -47,7 +47,7 @@ export async function fetchTwelveDataSeries(symbol, tf, apiKey, outputsize = 500
   lastTwelveRequest=Date.now();
   const url = new URL('https://api.twelvedata.com/time_series');
   url.search = new URLSearchParams({symbol,interval,outputsize:String(outputsize),timezone:'UTC',
-    apikey:apiKey,order:'ASC',prepost:'false',adjust:'splits'});
+    apikey:apiKey,order:'ASC',prepost:'false',adjust:'splits',country:'United States'});
   if(tf==='1w')url.searchParams.set('start_date','2020-01-06');
   const response = await fetch(url, {signal:AbortSignal.timeout(20000)});
   if (!response.ok) throw new Error(`Twelve Data HTTP ${response.status}`);

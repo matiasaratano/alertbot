@@ -3,11 +3,7 @@
 .env
 .env.*
 !.env.example
-scan.lock
 state.json.tmp
 node_modules/
 __pycache__/
-*.zip
 .calendar-venv/
-watch-state.enc.tmp
-.runtime-data/

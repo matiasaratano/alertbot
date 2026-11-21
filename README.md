@@ -1,57 +1,58 @@
-> **Vigente: Híbrido v9, 19/09/2026.** Telegram envía cruces RSI BUY/SELL en 4h, diario y semanal. Ver [guía actual](SEGUIMIENTO-TELEGRAM.md). El contenido que sigue documenta versiones anteriores.
+# Alertbot: avisos RSI diarios y semanales por Telegram
 
-> Bot con seguimiento manual: ver [SEGUIMIENTO-TELEGRAM.md](SEGUIMIENTO-TELEGRAM.md). Esa guía reemplaza las reglas de notificación anteriores; el Pine v8 se conserva.
+Revisa una vez por día velas **diarias y semanales** de 4 cripto (Kraken) y 24 acciones/ETFs (Twelve Data). Avisa cuando el RSI(14) marca un evento. Sirve para fijarse en un activo y analizarlo por tu cuenta; no es una señal para operar.
 
-> Versión vigente v8, 15/09/2026: consultar [NOTIFICACIONES.md](NOTIFICACIONES.md) y [comparación histórica](audit-v8/INFORME.md). Las revisiones siguientes describen versiones anteriores.
+## Avisos
 
-> Actualización 14/09/2026: la política vigente, el nuevo Pine y la activación están en [NOTIFICACIONES.md](NOTIFICACIONES.md). Las descripciones de la revisión anterior que siguen no incluyen los nuevos preavisos; su auditoría de volumen no valida esta versión.
+| Aviso | Regla (vela cerrada) |
+|---|---|
+| 🟢 RSI sale de sobreventa | RSI cruza 30 hacia arriba |
+| 🟠 RSI sale de sobrecompra | RSI cruza 70 hacia abajo |
+| 🔵 Sobreventa extrema | RSI baja de 20 |
+| 🔴 Sobrecompra extrema | RSI supera 80 |
 
-# Alertbot — Telegram por prioridad y confluencia
+- ⭐ **Con divergencia**: el aviso lo indica si el extremo de precio de las últimas 10 velas es más bajo (o más alto) que el pivot anterior y el RSI no lo acompaña. Solo usa velas ya cerradas.
+- Cada mensaje trae el precio, la posición respecto de la EMA200 (si hay 200 velas) y un link a TradingView.
+- Cada cruce se avisa una sola vez.
 
-Scanner de BTCUSD, ETHUSD, SOLUSD y BNBUSD (Kraken), y acciones estadounidenses (Twelve Data). Temporalidades:1h,4h y diario. Reproduce las condiciones principales del Pine final `SQZMOM + RSI + Divergencias + Confluencia v6` y aplica una selección adicional de mensajes.
+**Resumen semanal** (domingo ~21:20 ART): muestra los avisos de la semana y los activos con RSI ≤ 35 o ≥ 65 en diario o semanal, ordenados por extremo.
 
-Ver **NOTIFICACIONES.md** para la política exacta, el contraste de volumen sobre datos reales y la activación.
+## Activos
 
-- 1h: confluencia3/4 con divergencia confirmada.
-- 4h: confluencia2/4 con divergencia confirmada.
-- Diario: confluencia o divergencia recién confirmada.
-- Sin RSI/SQZ/PRE individuales. Un mensaje agrupado por dirección y vela, con pausa de8 velas por símbolo/temporalidad/dirección.
-- Sin avisos de inactividad por Telegram. Diagnóstico manual en Actions.
+Se configuran en [config.mjs](config.mjs).
+
+- **Cripto**: BTCUSD, ETHUSD, SOLUSD, BNBUSD.
+- **Acciones/ETFs**: NU, MELI, NFLX, MSFT, GOOGL, TSLA, NVDA, AVGO, KO, MSTR, MU, AMD, INTC, AAPL, AMZN, META, TSM, PLTR, JPM, V, LLY, COST, SPY y QQQ.
+
+## Horario
+
+El GitHub Action corre a las 00:23 UTC (21:23 ART), después del cierre diario cripto y del cierre de Nueva York.
+
+- **Semanal de acciones**: se revisa el sábado, después del cierre del viernes.
+- **Semanal cripto y resumen**: se revisan el lunes a las 00:23 UTC.
+- **Recuperación**: si una corrida falla, se recuperan cierres de hasta 72 h (`MAX_ALERT_DELAY_MINUTES`).
+- **Prueba manual**: botón "Run workflow" en Actions.
 
 ## Uso
 
-Node.js22 o posterior. No se necesitan dependencias npm para escanear.
+Requiere Node.js 22 o posterior. No tiene dependencias.
 
 ```sh
 npm test
-npm run dry-run
+npm run dry-run   # consulta precios y muestra los mensajes sin enviarlos ni guardar estado
 ```
 
-La simulación consulta precios y no envía Telegram ni escribe estado. En una instalación nueva no muestra historial: inicializa la referencia de señales en memoria.
+Secrets de GitHub (o `.env` local, ver `.env.example`):
 
-Para ejecución real, configurar TELEGRAM_TOKEN, TELEGRAM_CHAT_ID y opcionalmente TWELVEDATA_API_KEY como variables de entorno o secrets de GitHub. Localmente se puede copiar `.env.example` a `.env`, completarlo y usar:
+- `TELEGRAM_TOKEN` y `TELEGRAM_CHAT_ID`.
+- `TWELVEDATA_API_KEY`: sin esta key solo se revisan cripto. El plan gratis alcanza: unas 30–50 requests por día.
 
-```sh
-node --env-file=.env scan.mjs
-```
+## Archivos
 
-No subir `.env` ni credenciales. Conservar el state.json de producción. El scanner usa un lock local y el workflow serializa sus ejecuciones. Si un corte abrupto deja scan.lock, comprobar que no hay un scanner activo antes de quitarlo.
-
-## Archivos relevantes
-
-- config.mjs: parámetros del Pine, símbolos, temporalidades y política Telegram.
-- confluence.mjs: RSI/SQZ, divergencias del precio/oscillador, ventana de coincidencia y EMA.
-- scan.mjs: selección, agrupación, pausa de notificaciones, envío y persistencia.
-- telegram.mjs: validación de respuestas, control de frecuencia y timeout.
-- market-calendar.mjs y us-sessions.json: sesión regular estadounidense, DST, feriados y cierres anticipados. Calendario XNYS generado para2020–2030; actualizar ante cambios extraordinarios o fin de cobertura.
-- tradingview/selected-confluence.pine: script aportado sin modificaciones.
-
-## Límites
-
-El cron solicita ejecución cada5 minutos; GitHub puede demorarla. Las velas se consideran publicables un minuto después de su cierre. Solo se consulta un cierre pendiente por símbolo/temporalidad. Eventos con más de120 minutos desde el cierre se omiten; MAX_ALERT_DELAY_MINUTES permite cambiarlo.
-
-El bot y TradingView calculan por separado: usar los mismos inputs, feed y sesión. Se usan700 barras para inicializar indicadores, pero no se promete igualdad exacta de EMA/RSI con un gráfico de historial diferente. Los puntajes no son probabilidades; el estudio previo de PRE no valida esta nueva confluencia ni sus filtros.
-
-Si Telegram acepta un mensaje pero se pierde su respuesta, o si falla el push del estado después del envío, podría repetirse al recuperar. La persistencia después de cada respuesta exitosa reduce el problema, sin garantizar exactamente una entrega.
-
-40 pruebas aprobadas: ventanas y cooldowns, pivots de precio para RSI, EMA, selección por temporalidad, fechas reales de cierre, ausencia de dependencia futura, persistencia tras envío parcial, errores de API y watchdog sin Telegram. Prueba pública de volumen en BTC completada sin envíos ni cambios de estado.
+- `config.mjs`: activos, niveles RSI y parámetros.
+- `indicators.mjs`: RSI de Wilder, cruces, EMA y pivots.
+- `signals.mjs`: detección de avisos, divergencia, mensajes y resumen semanal.
+- `scan.mjs`: recorre los activos, deduplica, envía y guarda `state.json`.
+- `data-sources.mjs`: Kraken y Twelve Data. La semana cripto se arma de lunes a domingo UTC, igual que TradingView.
+- `market-calendar.mjs` y `us-sessions.json`: sesiones NYSE 2020–2030 con feriados y cierres anticipados. Se regeneran con `scripts/generate-calendar.py`.
+- `tradingview/hybrid-v9.pine`: indicador para el gráfico.
