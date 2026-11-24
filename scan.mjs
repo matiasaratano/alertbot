@@ -8,7 +8,7 @@ import { CRYPTO_SYMBOLS, STOCK_SYMBOLS, TIMEFRAMES, RSI, HISTORY, maxAlertDelayM
 
 const STATE_FILE = new URL('./state.json', import.meta.url);
 // Claves vigentes. El resto (versiones anteriores, 4h, activos quitados) se descarta al cargar.
-const CURRENT_KEY = /^(rsi|_rsi|_rsiAt|_checked):[A-Z.]+:(1d|1w)(:|$)|^_summaryWeek$/;
+const CURRENT_KEY = /^(rsi|_rsi|_rsiAt|_ema200|_checked):[A-Z.]+:(1d|1w)(:|$)|^_summaryWeek$/;
 
 export function pruneState(raw) {
   const state = {};
@@ -54,7 +54,8 @@ export async function scanMarkets({ state, persist, send, clock = Date.now,
       if ((state[checkKey] ?? 0) >= target) continue;
       const candles = crypto ? await cryptoFetch(symbol, tf, HISTORY) : await stockFetch(symbol, tf, stockKey, HISTORY);
       if (candles.close.length < RSI.length + 2) throw new Error('Historial insuficiente para RSI');
-      const { events, lastRsi } = buildSignals(candles);
+      const { events, lastRsi, lastEmas } = buildSignals(candles);
+      if (tf === '1d' && lastEmas[200]) state[`_ema200:${symbol}:1d`] = Number(lastEmas[200].pct.toFixed(2));
       state[`_rsi:${symbol}:${tf}`] = Number(lastRsi.toFixed(2));
       state[`_rsiAt:${symbol}:${tf}`] = candles.closeTime.at(-1);
       const accepted = pendingEvents(state, symbol, tf, events, clock(), maxDelay);

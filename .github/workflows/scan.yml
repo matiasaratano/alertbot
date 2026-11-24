@@ -2,10 +2,11 @@ name: Scan crypto & stock signals
 
 on:
   schedule:
-    # Una vez por día, 00:23 UTC (21:23 ART): después del cierre diario cripto
-    # (00:00 UTC) y del cierre de Nueva York. Las velas semanales de acciones se
-    # ven el sábado; las cripto y el resumen semanal, el lunes (domingo a la noche ART).
-    - cron: "23 0 * * *"
+    # Una vez por día, 13:17 UTC (10:17 ART). A esa hora ya cerraron la vela diaria
+    # cripto (00:00 UTC) y la de Nueva York del día anterior. El cron de medianoche
+    # UTC sufría demoras de 4 a 10 h en GitHub; a media mañana suele ser más puntual.
+    # Semanal de acciones: sábado. Semanal cripto y resumen: lunes.
+    - cron: "17 13 * * *"
   workflow_dispatch: {} # botón "Run workflow" manual en GitHub para probar
 
 # evita que dos corridas se pisen entre sí (una corrida lenta + el próximo

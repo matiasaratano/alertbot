@@ -12,10 +12,16 @@ Revisa una vez por día velas **diarias y semanales** de 4 cripto (Kraken) y 24 
 | 🔴 Sobrecompra extrema | RSI supera 80 |
 
 - ⭐ **Con divergencia**: el aviso lo indica si el extremo de precio de las últimas 10 velas es más bajo (o más alto) que el pivot anterior y el RSI no lo acompaña. Solo usa velas ya cerradas.
-- Cada mensaje trae el precio, la posición respecto de la EMA200 (si hay 200 velas) y un link a TradingView.
+- **Formato breve**: una línea con el evento, una frase sobre la tendencia, la divergencia si la hay, el cierre con el precio y el link a TradingView. Ejemplo:
+  ```
+  🟢 SOLUSD · diario · sale de sobreventa (RSI 31.5)
+  Tendencia bajista: 24% debajo de la EMA200, que sigue bajando.
+  Cierre 23/11 · 71.95 USD
+  ```
+- **Tendencia**: la frase sale de la distancia a la EMA200 y de si la media sube o baja respecto de 20 velas atrás. 📍 marca que el precio está a menos de 3% de la EMA200. Sin historial para la EMA200 (semanal cripto), usa la EMA50.
 - Cada cruce se avisa una sola vez.
 
-**Resumen semanal** (domingo ~21:20 ART): muestra los avisos de la semana y los activos con RSI ≤ 35 o ≥ 65 en diario o semanal, ordenados por extremo.
+**Resumen semanal** (lunes ~10:20 ART): muestra los avisos de la semana y los activos con RSI ≤ 35 o ≥ 65 en diario o semanal, ordenados por extremo, con la distancia a la EMA200 diaria.
 
 ## Activos
 
@@ -26,10 +32,10 @@ Se configuran en [config.mjs](config.mjs).
 
 ## Horario
 
-El GitHub Action corre a las 00:23 UTC (21:23 ART), después del cierre diario cripto y del cierre de Nueva York.
+El GitHub Action corre a las 13:17 UTC (10:17 ART). A esa hora ya cerraron la vela diaria cripto (00:00 UTC) y la de Nueva York del día anterior. GitHub puede demorar el cron.
 
 - **Semanal de acciones**: se revisa el sábado, después del cierre del viernes.
-- **Semanal cripto y resumen**: se revisan el lunes a las 00:23 UTC.
+- **Semanal cripto y resumen**: se revisan el lunes.
 - **Recuperación**: si una corrida falla, se recuperan cierres de hasta 72 h (`MAX_ALERT_DELAY_MINUTES`).
 - **Prueba manual**: botón "Run workflow" en Actions.
 

@@ -17,7 +17,11 @@ export const RSI = {
 };
 // Divergencia RSI: extremo de las últimas `lookback` velas contra el pivot de precio anterior.
 export const DIVERGENCE = { pivotLen: 5, rangeMin: 5, rangeMax: 60, lookback: 10 };
-export const EMA_LENGTH = 200;
+// Medias de contexto. Se informa la distancia del precio y si la EMA200 sube o baja
+// (comparada con 20 velas atrás). "Cerca" = a menos de EMA_NEAR_PCT %.
+export const EMA_LENGTHS = [50, 200];
+export const EMA_SLOPE_BARS = 20;
+export const EMA_NEAR_PCT = 3;
 export const HISTORY = 700;
 // Margen para que el proveedor publique la vela cerrada.
 export const SETTLEMENT_MS = 60000;

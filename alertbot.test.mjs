@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { rsiWilder, crossEvents, findPivots } from './indicators.mjs';
-import { buildSignals, pendingEvents, deliverEvents, signalMessage, weeklySummary } from './signals.mjs';
+import { buildSignals, pendingEvents, deliverEvents, signalMessage, weeklySummary, trendSentence } from './signals.mjs';
 import { scanMarkets, pruneState } from './scan.mjs';
 import { aggregateCryptoWeeks, fetchTwelveDataSeries, normalizeCandles } from './data-sources.mjs';
 import { latestCryptoClose, latestStockClose, stockBarTimes, stockWeekTimes } from './market-calendar.mjs';
@@ -47,7 +47,7 @@ test('signals: extreme entry on the way down and oversold exit on rebound', () =
   assert.equal(last.signal, 'rsi_buy');
   assert.equal(last.idx, 45);
   assert.ok(last.previousRsi <= 30 && last.rsi > 30);
-  assert.equal(last.ema, undefined, 'sin 200 velas no hay EMA200');
+  assert.deepEqual(Object.keys(last.emas), [], 'sin 50/200 velas no hay medias');
   // Mirror: subida sostenida da sobrecompra extrema y luego salida bajo 70.
   const up = rebound().map(x => 200 - x);
   const bear = buildSignals(candles(up)).events;
@@ -73,7 +73,7 @@ test('bullish RSI divergence is attached to the oversold exit', () => {
     [['rsi_extreme_low', 25, false], ['rsi_buy', 33, false], ['rsi_buy', 48, true]]);
   const div = events.at(-1).divergence, t = candles(c).openTime;
   assert.deepEqual([div.prevTime, div.pivotTime], [t[29], t[47]]);
-  assert.match(signalMessage('NVDA', '1d', events.at(-1), NOW), /Con divergencia alcista/);
+  assert.match(signalMessage('NVDA', '1d', events.at(-1), NOW), /⭐ Divergencia alcista: el precio hizo un mínimo más bajo, pero el RSI no\./);
 });
 
 test('dedup, expiry and retry of unsent events', async () => {
@@ -86,29 +86,41 @@ test('dedup, expiry and retry of unsent events', async () => {
 });
 
 test('message: Spanish labels, chart link and recovered notice', () => {
-  const e = { signal: 'rsi_extreme_low', level: 20, previousRsi: 21.2, rsi: 18.4, price: 12.5, ema: 15, confirmedTime: NOW - 30 * 3600000 };
+  const e = { signal: 'rsi_extreme_low', level: 20, previousRsi: 21.2, rsi: 18.4, price: 12.5, emas: { 50: { pct: -8.4, rising: false }, 200: { pct: -16.7, rising: false } }, confirmedTime: NOW - 30 * 3600000 };
   const text = signalMessage('NU', '1d', e, NOW);
-  assert.match(text, /NU<\/b> · RSI en sobreventa extrema · diario/);
-  assert.match(text, /bajó de 20: 21\.2 → 18\.4/);
-  assert.match(text, /debajo de EMA200/);
-  assert.match(text, /Aviso recuperado/);
+  assert.equal(text.split('\n').length, 4);
+  assert.match(text, /^🔵 <b>NU<\/b> · diario · sobreventa extrema \(RSI 18\.4\)$/m);
+  assert.match(text, /^Tendencia bajista: 17% debajo de la EMA200, que sigue bajando\.$/m);
+  assert.match(text, /^Cierre \d\d\/\d\d · 12\.50 USD · 🕒 hace 30 h/m);
   assert.match(text, /symbol=NU&interval=D/);
   assert.match(signalMessage('BTCUSD', '1w', { ...e, confirmedTime: NOW }, NOW), /KRAKEN%3ABTCUSD&interval=W/);
-  assert.doesNotMatch(signalMessage('BTCUSD', '1w', { ...e, confirmedTime: NOW }, NOW), /recuperado/);
+  assert.doesNotMatch(signalMessage('BTCUSD', '1w', { ...e, confirmedTime: NOW }, NOW), /🕒/);
+});
+
+test('EMA context distinguishes a pullback in an uptrend from a reclaim in a downtrend', () => {
+  assert.equal(trendSentence({ 50: { pct: -4 }, 200: { pct: 1.2, rising: true } }), '📍 Corrige hasta la EMA200 dentro de una tendencia alcista.');
+  assert.equal(trendSentence({ 200: { pct: 1, rising: false } }), '📍 Está recuperando la EMA200, que todavía baja.');
+  assert.equal(trendSentence({ 200: { pct: -12, rising: true } }), 'Corrección profunda: 12% debajo de la EMA200, que todavía sube.');
+  assert.equal(trendSentence({ 200: { pct: 9, rising: false } }), 'Superó la EMA200 bajista por 9%: posible cambio de tendencia.');
+  assert.equal(trendSentence({ 50: { pct: -6.3 } }), '6% debajo de la EMA50 (no hay historial para la EMA200).');
+  assert.equal(trendSentence({}), undefined);
+  // Con 250 velas en subida se calculan ambas medias y la pendiente.
+  const up = buildSignals(candles(Array.from({ length: 250 }, (_, i) => 100 + i + (i % 3)))).lastEmas;
+  assert.ok(up[50].pct > 0 && up[200].pct > 0 && up[200].rising === true);
 });
 
 test('weekly summary lists recent alerts and zones, skipping stale values', () => {
   const state = {
     'rsi:NVDA:1d:rsi_buy': NOW - 2 * DAY, 'rsi:AAPL:1d:rsi_sell': NOW - 9 * DAY,
-    '_rsi:NVDA:1d': 31.5, '_rsiAt:NVDA:1d': NOW, '_rsi:NVDA:1w': 18, '_rsiAt:NVDA:1w': NOW,
+    '_rsi:NVDA:1d': 31.5, '_rsiAt:NVDA:1d': NOW, '_ema200:NVDA:1d': -2.4, '_rsi:NVDA:1w': 18, '_rsiAt:NVDA:1w': NOW,
     '_rsi:MSTR:1d': 82, '_rsiAt:MSTR:1d': NOW, '_rsi:KO:1d': 50, '_rsiAt:KO:1d': NOW,
     '_rsi:TSLA:1d': 10, '_rsiAt:TSLA:1d': NOW - 20 * DAY,
   };
   const text = weeklySummary(state, ['NVDA', 'AAPL', 'MSTR', 'KO', 'TSLA'], NOW);
   assert.match(text, /NVDA · 1d · RSI sale de sobreventa/);
   assert.doesNotMatch(text, /AAPL/);
-  assert.match(text, /🔵 NVDA · 1d 31\.5 · 1w 18\.0/);
-  assert.match(text, /🔴 MSTR · 1d 82\.0/);
+  assert.match(text, /🔵 NVDA · 1d 31\.5 · 1w 18\.0 · EMA200 −2\.4% 📍/);
+  assert.match(text, /🔴 MSTR · 1d 82\.0$/m);
   assert.doesNotMatch(text, /KO ·|TSLA/);
 });
 
@@ -122,7 +134,7 @@ test('scanner: sends once per close, caches RSI and sends the weekly summary onc
   const result = await scanMarkets(opts);
   assert.equal(result.healthy, true);
   assert.equal(result.alertsSent, 1);
-  assert.match(messages[0], /RSI sale de sobreventa/);
+  assert.match(messages[0], /diario · sale de sobreventa/);
   assert.equal(result.summarySent, true);
   assert.match(messages[1], /Resumen semanal/);
   assert.ok(Number.isFinite(state['_rsi:BTCUSD:1d']));
@@ -168,7 +180,7 @@ test('crypto and stock close schedule: Monday UTC week, holidays, DST and early 
   assert.deepEqual(stockWeekTimes('2026-09-07'), { open: Date.parse('2026-09-08T13:30:00Z'), close: Date.parse('2026-09-11T20:00:00Z') });
   assert.equal(stockBarTimes('2026-11-23', '1w').close, Date.parse('2026-11-27T18:00:00Z'));
   assert.equal(stockBarTimes('2026-11-20', '1d').close, Date.parse('2026-11-20T21:00:00Z'));
-  // Sábado 00:23 UTC: último cierre diario y semanal = viernes.
+  // Sábado: último cierre diario y semanal = viernes.
   const saturday = Date.parse('2026-11-21T00:23:00Z');
   assert.equal(latestStockClose('1d', saturday), Date.parse('2026-11-20T21:00:00Z'));
   assert.equal(latestStockClose('1w', saturday), Date.parse('2026-11-20T21:00:00Z'));
